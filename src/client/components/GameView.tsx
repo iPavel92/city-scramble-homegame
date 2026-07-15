@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { GameStateView, Team } from "../../shared/types";
 import { MapView, type MapFeature } from "./MapView";
@@ -7,6 +7,17 @@ import { Leaderboard } from "./Leaderboard";
 import { ChallengeSheet } from "./ChallengeSheet";
 
 const GRAY = "#9ca3af";
+const BORDER = "#000000";
+const HIGHLIGHT = "#fbbf24";
+const ANNOUNCE_MS = 3200;
+
+interface Announcement {
+  id: string;
+  areaId: string;
+  message: string;
+  /** Team color for a claim announcement (undefined for a reveal). */
+  color?: string;
+}
 
 export function GameView({
   state,
@@ -18,6 +29,13 @@ export function GameView({
   onClaim: (areaId: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [queue, setQueue] = useState<Announcement[]>([]);
+  const prevRef = useRef<{ claims: Map<string, string>; open: Set<string>; init: boolean }>({
+    claims: new Map(),
+    open: new Set(),
+    init: false,
+  });
+  const seqRef = useRef(0);
 
   const teamById = useMemo(() => new Map(state.teams.map((t) => [t.id, t])), [state.teams]);
   const you = teamById.get(state.youTeamId);
@@ -25,29 +43,99 @@ export function GameView({
     () => new Map(state.placements.map((p) => [p.areaId, p])),
     [state.placements],
   );
+  const areaNameById = useMemo(
+    () => new Map(state.areas.map((a) => [a.id, a.name])),
+    [state.areas],
+  );
+
+  // Derive "claimed" / "new area in play" events by diffing consecutive states.
+  useEffect(() => {
+    const currClaims = new Map<string, string>();
+    const currOpen = new Set<string>();
+    for (const p of state.placements) {
+      if (p.claim) currClaims.set(p.areaId, p.claim.teamId);
+      else if (p.deck === "open" && p.claimable) currOpen.add(p.areaId);
+    }
+
+    const prev = prevRef.current;
+    if (!prev.init) {
+      // First snapshot is the baseline — don't announce the initial board.
+      prevRef.current = { claims: currClaims, open: currOpen, init: true };
+      return;
+    }
+
+    const next: Announcement[] = [];
+    // Newly claimed areas (shown to everyone except the team that claimed it).
+    for (const [areaId, teamId] of currClaims) {
+      if (!prev.claims.has(areaId) && teamId !== state.youTeamId) {
+        const t = teamById.get(teamId);
+        next.push({
+          id: `c${seqRef.current++}`,
+          areaId,
+          message: `${t?.name ?? "A team"} claimed ${areaNameById.get(areaId) ?? "an area"}`,
+          color: t?.color,
+        });
+      }
+    }
+    // Newly revealed open-deck areas (shown to all teams).
+    for (const areaId of currOpen) {
+      if (!prev.open.has(areaId)) {
+        next.push({
+          id: `r${seqRef.current++}`,
+          areaId,
+          message: `New area in play: ${areaNameById.get(areaId) ?? "unknown"}`,
+        });
+      }
+    }
+
+    prevRef.current = { claims: currClaims, open: currOpen, init: true };
+    if (next.length) setQueue((q) => [...q, ...next]);
+  }, [state, teamById, areaNameById]);
+
+  // Show announcements one at a time.
+  useEffect(() => {
+    if (queue.length === 0) return;
+    const headId = queue[0].id;
+    const t = setTimeout(
+      () => setQueue((q) => (q[0]?.id === headId ? q.slice(1) : q)),
+      ANNOUNCE_MS,
+    );
+    return () => clearTimeout(t);
+  }, [queue]);
+
+  const current = queue[0] ?? null;
+  const highlightId = current?.areaId ?? null;
 
   const features: MapFeature[] = useMemo(
     () =>
       state.areas.map((area) => {
         const p = placementById.get(area.id)!;
-        let style;
+        let fillColor: string;
+        let fillOpacity: number;
         if (p.claim) {
-          const c = teamById.get(p.claim.teamId)?.color ?? GRAY;
-          style = { color: c, weight: 2, fillColor: c, fillOpacity: 0.6 };
+          fillColor = teamById.get(p.claim.teamId)?.color ?? GRAY;
+          fillOpacity = 0.6;
         } else if (p.deck === "open") {
-          style = { color: "#cbd5e1", weight: 1.5, fillColor: GRAY, fillOpacity: 0.3 };
+          fillColor = GRAY;
+          fillOpacity = 0.4;
         } else {
-          const c = you?.color ?? "#38bdf8";
-          style = { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.3, dashArray: "5,4" };
+          fillColor = you?.color ?? "#38bdf8";
+          fillOpacity = 0.3;
         }
+        const isHi = area.id === highlightId;
         return {
           area,
-          style,
+          style: {
+            color: isHi ? HIGHLIGHT : BORDER,
+            weight: isHi ? 4 : 1.5,
+            fillColor,
+            fillOpacity: isHi ? Math.min(0.8, fillOpacity + 0.2) : fillOpacity,
+          },
           tooltip: area.name,
           onClick: p.claimable ? () => setSelected(area.id) : undefined,
         };
       }),
-    [state.areas, placementById, teamById, you],
+    [state.areas, placementById, teamById, you, highlightId],
   );
 
   const selPlacement = selected ? placementById.get(selected) : null;
@@ -60,6 +148,13 @@ export function GameView({
         {state.endsAt && <Timer endsAt={state.endsAt} offset={offset} />}
         <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
       </div>
+
+      {current && (
+        <div className="announce" key={current.id}>
+          {current.color && <span className="dot" style={{ background: current.color }} />}
+          <span>{current.message}</span>
+        </div>
+      )}
 
       {selPlacement?.claimable && selArea && (
         <ChallengeSheet
@@ -86,7 +181,9 @@ function ResultsOverlay({
   teamById: Map<string, Team>;
 }) {
   const navigate = useNavigate();
-  const winners = (state.winnerTeamIds ?? []).map((id) => teamById.get(id)).filter(Boolean) as Team[];
+  const winners = (state.winnerTeamIds ?? [])
+    .map((id) => teamById.get(id))
+    .filter(Boolean) as Team[];
   const ranked = [...state.scores].sort(
     (a, b) => b.largestCluster - a.largestCluster || b.totalClaimed - a.totalClaimed,
   );
@@ -98,7 +195,10 @@ function ResultsOverlay({
         <h2>No areas were claimed</h2>
       ) : winners.length === 1 ? (
         <h2>
-          <span className="dot" style={{ background: winners[0].color, display: "inline-block" }} />{" "}
+          <span
+            className="dot"
+            style={{ background: winners[0].color, display: "inline-block" }}
+          />{" "}
           {winners[0].name} wins!
         </h2>
       ) : (

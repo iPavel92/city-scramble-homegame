@@ -106,10 +106,10 @@ export function AreaSelector({
         return {
           area: { id: a.id, name: a.name, centroid: a.centroid, geometry: a.geometry },
           style: {
-            color: selected ? "#38bdf8" : "#64748b",
-            weight: selected ? 2.5 : 1,
+            color: "#000000",
+            weight: selected ? 3 : 1,
             fillColor: selected ? "#38bdf8" : "#94a3b8",
-            fillOpacity: selected ? 0.45 : 0.12,
+            fillOpacity: selected ? 0.5 : 0.12,
           },
           onClick: () => toggle(a.id),
           tooltip: a.name,
