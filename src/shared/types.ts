@@ -1,5 +1,6 @@
 // Shared types used by both the Worker (server) and the React client.
 // Geometry is a minimal GeoJSON subset so the client needs no GeoJSON types.
+import type { Lang } from "./i18n";
 
 /** [lng, lat] as used by GeoJSON. */
 export type LngLat = [number, number];
@@ -42,6 +43,8 @@ export interface GameParams {
   privateUnlockPeriodMs: number;
   /** Players per team (1 or 2). 2 adds teammate challenges to the default pool. */
   teamSize?: number;
+  /** Host's language — decides the language of the default challenge pool. */
+  challengeLang?: Lang;
 }
 
 export interface Claim {

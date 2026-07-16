@@ -17,18 +17,21 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  search: (q: string) =>
-    req<OsmSearchResult[]>(`/api/osm/search?q=${encodeURIComponent(q)}`),
+  search: (q: string, lang: string) =>
+    req<OsmSearchResult[]>(`/api/osm/search?q=${encodeURIComponent(q)}&lang=${lang}`),
 
-  areas: (parentId: number, adminLevel: number) =>
-    req<OsmAreasResponse>(`/api/osm/areas?parentId=${parentId}&adminLevel=${adminLevel}`),
+  areas: (parentId: number, adminLevel: number, lang: string) =>
+    req<OsmAreasResponse>(
+      `/api/osm/areas?parentId=${parentId}&adminLevel=${adminLevel}&lang=${lang}`,
+    ),
 
   areasInView: (
     adminLevel: number,
     b: { s: number; w: number; n: number; e: number },
+    lang: string,
   ) =>
     req<OsmAreasResponse>(
-      `/api/osm/areas-in-view?adminLevel=${adminLevel}&s=${b.s}&w=${b.w}&n=${b.n}&e=${b.e}`,
+      `/api/osm/areas-in-view?adminLevel=${adminLevel}&s=${b.s}&w=${b.w}&n=${b.n}&e=${b.e}&lang=${lang}`,
     ),
 
   createLobby: (body: CreateLobbyRequest) =>

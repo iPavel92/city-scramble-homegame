@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
 import { buildAiPrompt, challengeTemplate, validateChallengeJson } from "../challenges";
-import { defaultChallengePool } from "../../shared/challenges";
+import { defaultChallengePool } from "../../shared/challenges.i18n";
 import { AreaSelector, type AreaSelection } from "../components/AreaSelector";
+import { useI18n } from "../i18n";
 
 type ChallengeMode = "default" | "custom";
 
 export function CreateLobby() {
   const navigate = useNavigate();
+  const { t, lang } = useI18n();
   const [step, setStep] = useState(1);
   const [sel, setSel] = useState<AreaSelection | null>(null);
 
@@ -72,15 +74,15 @@ export function CreateLobby() {
   const step3Ok = challengeMode === "default" || importedChallenges !== null;
 
   // Three random challenges shown as examples of the default pool. Reshuffles
-  // when the team size changes so teammate challenges can appear for 2-player.
+  // when team size or language changes.
   const exampleChallenges = useMemo(() => {
-    const pool = defaultChallengePool(teamSize);
+    const pool = defaultChallengePool(teamSize, lang);
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     return pool.slice(0, 3);
-  }, [teamSize]);
+  }, [teamSize, lang]);
 
   const copyTemplate = async () => {
     const text = challengeTemplate(selectedAreas);
@@ -92,12 +94,12 @@ export function CreateLobby() {
       // No clipboard access — drop the template into the box to copy manually.
       setChallengeText(text);
       setImportedChallenges(null);
-      setChallengeMsg("Couldn't reach the clipboard — template placed in the box below.");
+      setChallengeMsg(t("clipboardTemplateFallback"));
     }
   };
 
   const copyAiPrompt = async () => {
-    const text = buildAiPrompt(selectedAreas);
+    const text = buildAiPrompt(selectedAreas, lang);
     try {
       await navigator.clipboard.writeText(text);
       setPromptCopied(true);
@@ -106,7 +108,7 @@ export function CreateLobby() {
       // No clipboard access — drop the prompt into the box to copy manually.
       setChallengeText(text);
       setImportedChallenges(null);
-      setChallengeMsg("Couldn't reach the clipboard — prompt placed in the box below.");
+      setChallengeMsg(t("clipboardPromptFallback"));
     }
   };
 
@@ -114,7 +116,7 @@ export function CreateLobby() {
     const result = validateChallengeJson(challengeText, selectedAreas);
     if (!result.ok) {
       setImportedChallenges(null);
-      setChallengeMsg(result.error);
+      setChallengeMsg(t(result.code, "params" in result ? result.params : undefined));
       return;
     }
     setImportedChallenges(result.map);
@@ -123,8 +125,8 @@ export function CreateLobby() {
     const rest = total - n;
     setChallengeMsg(
       rest > 0
-        ? `Imported challenges for ${n} of ${total} areas. The other ${rest} will use random default challenges.`
-        : `Validated — custom challenges set for all ${total} areas.`,
+        ? t("importCoverage", { n, total, rest })
+        : t("importAll", { total }),
     );
   };
 
@@ -142,6 +144,7 @@ export function CreateLobby() {
           openInPlay: x,
           privateUnlockPeriodMs,
           teamSize: challengeMode === "default" ? teamSize : 1,
+          challengeLang: lang,
         },
         teamName: teamName.trim(),
         customChallenges:
@@ -172,11 +175,11 @@ export function CreateLobby() {
 
       {step === 1 && (
         <>
-          <h2>Choose the map</h2>
+          <h2>{t("chooseMap")}</h2>
           <AreaSelector initial={sel ?? undefined} onChange={setSel} />
           <div className="btn-row" style={{ marginTop: 10 }}>
             <button className="btn ghost" onClick={() => navigate("/")}>
-              Cancel
+              {t("cancel")}
             </button>
             <button
               className="btn"
@@ -190,7 +193,7 @@ export function CreateLobby() {
                 setStep(2);
               }}
             >
-              Next
+              {t("next")}
             </button>
           </div>
         </>
@@ -198,30 +201,30 @@ export function CreateLobby() {
 
       {step === 2 && (
         <div className="wizard-body">
-          <h2>Game settings</h2>
-          <label>Game Time limit</label>
+          <h2>{t("gameSettings")}</h2>
+          <label>{t("gameTimeLimit")}</label>
           <div className="btn-row">
             <div className="grow">
               <input
                 inputMode="numeric"
                 value={hh}
                 onChange={(e) => setHh(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                aria-label="hours"
+                aria-label={t("hours")}
               />
-              <div className="field-hint">hours</div>
+              <div className="field-hint">{t("hours")}</div>
             </div>
             <div className="grow">
               <input
                 inputMode="numeric"
                 value={mm}
                 onChange={(e) => setMm(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                aria-label="minutes"
+                aria-label={t("minutes")}
               />
-              <div className="field-hint">minutes</div>
+              <div className="field-hint">{t("minutes")}</div>
             </div>
           </div>
 
-          <label>Open deck flop size</label>
+          <label>{t("openDeckFlopSize")}</label>
           <input
             inputMode="numeric"
             value={openX}
@@ -230,11 +233,9 @@ export function CreateLobby() {
               setDeckSizesTouched(true);
             }}
           />
-          <div className="field-hint">
-            Shared areas visible at once (minimum 2). A new one appears whenever one is claimed.
-          </div>
+          <div className="field-hint">{t("openDeckFlopHint")}</div>
 
-          <label>Private deck size</label>
+          <label>{t("privateDeckSize")}</label>
           <input
             inputMode="numeric"
             value={privateY}
@@ -243,40 +244,37 @@ export function CreateLobby() {
               setDeckSizesTouched(true);
             }}
           />
-          <div className="field-hint">Exclusive areas each team can claim only for itself.</div>
+          <div className="field-hint">{t("privateDeckSizeHint")}</div>
 
-          <label>Private deck unveil period</label>
+          <label>{t("privateUnveilPeriod")}</label>
           <div className="btn-row">
             <div className="grow">
               <input
                 inputMode="numeric"
                 value={unlockHh}
                 onChange={(e) => setUnlockHh(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                aria-label="unlock hours"
+                aria-label={t("hours")}
               />
-              <div className="field-hint">hours</div>
+              <div className="field-hint">{t("hours")}</div>
             </div>
             <div className="grow">
               <input
                 inputMode="numeric"
                 value={unlockMm}
                 onChange={(e) => setUnlockMm(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                aria-label="unlock minutes"
+                aria-label={t("minutes")}
               />
-              <div className="field-hint">minutes</div>
+              <div className="field-hint">{t("minutes")}</div>
             </div>
           </div>
-          <div className="field-hint">
-            Private areas unlock one at a time on this interval. 0 = all from the start. Must
-            be less than the game time limit.
-          </div>
+          <div className="field-hint">{t("privateUnveilHint")}</div>
 
           <div className="btn-row" style={{ marginTop: "auto" }}>
             <button className="btn ghost" onClick={() => setStep(1)}>
-              Back
+              {t("back")}
             </button>
             <button className="btn" disabled={!step2Ok} onClick={() => setStep(3)}>
-              Next
+              {t("next")}
             </button>
           </div>
         </div>
@@ -284,10 +282,8 @@ export function CreateLobby() {
 
       {step === 3 && (
         <div className="wizard-body">
-          <h2>Challenges</h2>
-          <p className="field-hint">
-            Each area gets a challenge a team must complete to claim it.
-          </p>
+          <h2>{t("challenges")}</h2>
+          <p className="field-hint">{t("challengesIntro")}</p>
 
           <label className="toggle-row">
             <input
@@ -296,29 +292,27 @@ export function CreateLobby() {
               checked={challengeMode === "default"}
               onChange={() => setChallengeMode("default")}
             />
-            <span>Use default generic challenges</span>
+            <span>{t("useDefaultChallenges")}</span>
           </label>
           {challengeMode === "default" && (
             <div style={{ marginTop: 8 }}>
-              <label>Team size</label>
+              <label>{t("teamSize")}</label>
               <div className="chips">
                 <button
                   className={`chip ${teamSize === 1 ? "active" : ""}`}
                   onClick={() => setTeamSize(1)}
                 >
-                  1 player
+                  {t("onePlayer")}
                 </button>
                 <button
                   className={`chip ${teamSize === 2 ? "active" : ""}`}
                   onClick={() => setTeamSize(2)}
                 >
-                  2 players
+                  {t("twoPlayers")}
                 </button>
               </div>
               <div className="field-hint">
-                {teamSize === 2
-                  ? "Adds two-person teammate challenges to the pool."
-                  : "Solo-friendly challenges only."}
+                {teamSize === 2 ? t("teamSize2Hint") : t("teamSize1Hint")}
               </div>
               <ul className="examples">
                 {exampleChallenges.map((c, i) => (
@@ -334,28 +328,26 @@ export function CreateLobby() {
               checked={challengeMode === "custom"}
               onChange={() => setChallengeMode("custom")}
             />
-            <span>Use custom challenges</span>
+            <span>{t("useCustomChallenges")}</span>
           </label>
 
           {challengeMode === "custom" && (
             <div style={{ marginTop: 12 }}>
               <div className="field-hint" style={{ marginBottom: 8 }}>
-                Copy the template, fill in the challenges you want, paste it back, then Import.
-                Matched by area name; any area you leave out uses a random default challenge.
+                {t("customChallengesIntro")}
               </div>
               <button className="btn secondary" onClick={copyTemplate}>
-                {copied ? "Copied!" : "Copy template"}
+                {copied ? t("copied") : t("copyTemplate")}
               </button>
               <div className="field-hint" style={{ marginTop: 10 }}>
-                Or build a ready-to-paste prompt that generates location-specific challenges for
-                your selected areas. Run it in an AI, then paste the JSON reply below and Import.
+                {t("aiPromptIntro")}
               </div>
               <button
                 className="btn secondary"
                 style={{ marginTop: 6 }}
                 onClick={copyAiPrompt}
               >
-                {promptCopied ? "Copied!" : "Copy prompt for AI"}
+                {promptCopied ? t("copied") : t("copyPromptForAi")}
               </button>
               <textarea
                 className="challenge-box"
@@ -376,7 +368,7 @@ export function CreateLobby() {
                 disabled={!challengeText.trim()}
                 onClick={importChallenges}
               >
-                Import challenges
+                {t("importChallenges")}
               </button>
               {challengeMsg && (
                 <div className={`msg ${importedChallenges ? "ok" : "err"}`}>{challengeMsg}</div>
@@ -386,42 +378,42 @@ export function CreateLobby() {
 
           <div className="btn-row" style={{ marginTop: "auto" }}>
             <button className="btn ghost" onClick={() => setStep(2)}>
-              Back
+              {t("back")}
             </button>
             <button className="btn" disabled={!step3Ok} onClick={() => setStep(4)}>
-              Next
+              {t("next")}
             </button>
           </div>
           {challengeMode === "custom" && !step3Ok && (
-            <div className="hint">Import your challenges to continue.</div>
+            <div className="hint">{t("importContinueHint")}</div>
           )}
         </div>
       )}
 
       {step === 4 && (
         <div className="wizard-body">
-          <h2>Your team</h2>
-          <label htmlFor="host-team">Team name</label>
+          <h2>{t("yourTeam")}</h2>
+          <label htmlFor="host-team">{t("teamName")}</label>
           <input
             id="host-team"
             value={teamName}
             maxLength={24}
-            placeholder="Team Captain"
+            placeholder={t("teamNamePlaceholder")}
             autoComplete="name"
             name="name"
             onChange={(e) => setTeamName(e.target.value)}
           />
-          <div className="field-hint">You are the host and can start the game.</div>
+          <div className="field-hint">{t("hostStartHint")}</div>
           <div className="btn-row" style={{ marginTop: "auto" }}>
             <button className="btn ghost" onClick={() => setStep(3)}>
-              Back
+              {t("back")}
             </button>
             <button
               className="btn"
               disabled={busy || teamName.trim().length === 0}
               onClick={create}
             >
-              {busy ? "Creating…" : "Create lobby"}
+              {busy ? t("creating") : t("createLobby")}
             </button>
           </div>
         </div>

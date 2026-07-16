@@ -86,11 +86,3 @@ export const TEAMMATE_CHALLENGES: string[] = [
   "Balance a stick or pole horizontally between your two index fingers and walk 50 ft [15 m] in a plaza without it falling.",
   "Both teammates hold a plank at the same time in a public square for 90 seconds.",
 ];
-
-/**
- * The default challenge pool for a given team size. Two-player teams get the
- * base pool plus the teammate-only challenges.
- */
-export function defaultChallengePool(teamSize: number): string[] {
-  return teamSize >= 2 ? [...CHALLENGES, ...TEAMMATE_CHALLENGES] : [...CHALLENGES];
-}

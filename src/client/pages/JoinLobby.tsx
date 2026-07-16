@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
+import { useI18n } from "../i18n";
 
 export function JoinLobby() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const [code, setCode] = useState((params.get("code") ?? "").toUpperCase());
   const [teamName, setTeamName] = useState("");
@@ -36,10 +38,10 @@ export function JoinLobby() {
   return (
     <div className="screen centered">
       <div className="brand" style={{ fontSize: "1.8rem" }}>
-        Join a game
+        {t("joinTitle")}
       </div>
       <div>
-        <label htmlFor="code">Lobby code</label>
+        <label htmlFor="code">{t("lobbyCode")}</label>
         <input
           id="code"
           value={code}
@@ -52,22 +54,22 @@ export function JoinLobby() {
         />
       </div>
       <div>
-        <label htmlFor="team">Team name</label>
+        <label htmlFor="team">{t("teamName")}</label>
         <input
           id="team"
           value={teamName}
           maxLength={24}
-          placeholder="The Trailblazers"
+          placeholder={t("teamNamePlaceholder")}
           autoComplete="name"
           name="name"
           onChange={(e) => setTeamName(e.target.value)}
         />
       </div>
       <button className="btn" disabled={!canJoin} onClick={join}>
-        {busy ? "Joining…" : "Join lobby"}
+        {busy ? t("joining") : t("joinLobby")}
       </button>
       <button className="btn ghost" onClick={() => navigate("/")}>
-        Back
+        {t("back")}
       </button>
       {error && <div className="error-toast">{error}</div>}
     </div>

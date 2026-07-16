@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { OsmAreaFeature, OsmSearchResult } from "../../shared/types";
 import { MapView, type MapFeature } from "./MapView";
+import { useI18n } from "../i18n";
 
 export interface AreaSelection {
   parent: OsmSearchResult | null;
@@ -26,6 +27,7 @@ export function AreaSelector({
   initial?: AreaSelection;
   onChange: (sel: AreaSelection) => void;
 }) {
+  const { t, lang } = useI18n();
   const [sel, setSel] = useState<AreaSelection>(initial ?? EMPTY);
   const [query, setQuery] = useState(initial?.parent?.name ?? "");
   const [results, setResults] = useState<OsmSearchResult[]>([]);
@@ -61,7 +63,7 @@ export function AreaSelector({
       setSearching(true);
       setError(null);
       try {
-        setResults(await api.search(q));
+        setResults(await api.search(q, lang));
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -69,13 +71,13 @@ export function AreaSelector({
       }
     }, 450);
     return () => clearTimeout(timer);
-  }, [query, sel.parent?.name]);
+  }, [query, sel.parent?.name, lang]);
 
   const loadAreas = async (parent: OsmSearchResult, adminLevel: number) => {
     setLoadingAreas(true);
     setError(null);
     try {
-      const res = await api.areas(parent.osmId, adminLevel);
+      const res = await api.areas(parent.osmId, adminLevel, lang);
       setSel((s) => ({
         ...s,
         parent,
@@ -101,7 +103,7 @@ export function AreaSelector({
     setLoadingAreas(true);
     setError(null);
     try {
-      const res = await api.areasInView(adminLevel, viewBounds);
+      const res = await api.areasInView(adminLevel, viewBounds, lang);
       setSel((s) => ({
         ...s,
         adminLevel,
@@ -155,17 +157,15 @@ export function AreaSelector({
   return (
     <div className="wizard-body">
       <div>
-        <label htmlFor="city">Search a city or district</label>
+        <label htmlFor="city">{t("searchCityLabel")}</label>
         <input
           id="city"
           value={query}
-          placeholder="e.g. Utrecht, Camden, Kreuzberg"
+          placeholder={t("searchCityPlaceholder")}
           autoCorrect="off"
           onChange={(e) => setQuery(e.target.value)}
         />
-        <div className="field-hint">
-          Pick an administrative boundary, then choose which sub-level to divide it into.
-        </div>
+        <div className="field-hint">{t("searchCityHint")}</div>
       </div>
 
       {searching && <div className="spinner" />}
@@ -195,10 +195,10 @@ export function AreaSelector({
               checked={searchInView}
               onChange={(e) => setSearchInView(e.target.checked)}
             />
-            <span>Search in this map view instead of city</span>
+            <span>{t("searchInView")}</span>
           </label>
 
-          <label>Sub-division level</label>
+          <label>{t("subDivisionLevel")}</label>
           <div className="chips">
             {[8, 9, 10].map((lvl) => (
               <button
@@ -210,14 +210,12 @@ export function AreaSelector({
                   else if (sel.parent) void loadAreas(sel.parent, lvl);
                 }}
               >
-                Level {lvl}
+                {t("level", { n: lvl })}
               </button>
             ))}
           </div>
           <div className="field-hint">
-            {searchInView
-              ? "Searches this level across the current map view, even other cities. Pan/zoom the map first."
-              : "Level 8 ≈ municipalities/suburbs · 9–10 ≈ neighbourhoods (availability varies by country)."}
+            {searchInView ? t("searchInViewHint") : t("levelHint")}
           </div>
         </div>
       )}
@@ -227,9 +225,9 @@ export function AreaSelector({
       {sel.areas.length > 0 && (
         <>
           <div className="row-between">
-            <span className="pill">{sel.areas.length} areas found</span>
+            <span className="pill">{t("areasFound", { n: sel.areas.length })}</span>
             <span className="pill" style={{ background: "#0ea5e9", color: "#04121f" }}>
-              {sel.selectedIds.length} selected
+              {t("areasSelected", { n: sel.selectedIds.length })}
             </span>
           </div>
           <div className="btn-row">
@@ -237,13 +235,13 @@ export function AreaSelector({
               className="btn secondary"
               onClick={() => setSel((s) => ({ ...s, selectedIds: s.areas.map((a) => a.id) }))}
             >
-              Select all
+              {t("selectAll")}
             </button>
             <button
               className="btn ghost"
               onClick={() => setSel((s) => ({ ...s, selectedIds: [] }))}
             >
-              Deselect all
+              {t("deselectAll")}
             </button>
           </div>
           <MapView
@@ -252,7 +250,7 @@ export function AreaSelector({
             className="map grow"
             onBoundsChange={setViewBounds}
           />
-          <div className="hint">Tap areas on the map to include them in the game.</div>
+          <div className="hint">{t("tapAreasHint")}</div>
         </>
       )}
 

@@ -6,6 +6,7 @@ import type {
   OsmAreasResponse,
   OsmSearchResult,
 } from "../shared/types";
+import type { Lang } from "../shared/i18n";
 import { centroidOf, simplifyGeometry } from "./geo";
 
 const USER_AGENT =
@@ -44,8 +45,8 @@ interface CacheIndex {
   ids: string[];
 }
 
-function cacheKeyFor(parentRelId: number, adminLevel: number): string {
-  return `areas:R${parentRelId}:${adminLevel}`;
+function cacheKeyFor(parentRelId: number, adminLevel: number, lang: Lang): string {
+  return `areas:R${parentRelId}:${adminLevel}:${lang}`;
 }
 
 function geomKey(cacheKey: string, id: string): string {
@@ -54,10 +55,14 @@ function geomKey(cacheKey: string, id: string): string {
 
 // ---------------- Nominatim search ----------------
 
-export async function searchCity(env: Env, query: string): Promise<OsmSearchResult[]> {
+export async function searchCity(
+  env: Env,
+  query: string,
+  lang: Lang = "en",
+): Promise<OsmSearchResult[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const cacheKey = `search:${q.toLowerCase()}`;
+  const cacheKey = `search:${lang}:${q.toLowerCase()}`;
   const cached = await env.OSM_CACHE.get(cacheKey, "json");
   if (cached) return cached as OsmSearchResult[];
 
@@ -66,7 +71,7 @@ export async function searchCity(env: Env, query: string): Promise<OsmSearchResu
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("extratags", "1");
   url.searchParams.set("limit", "12");
-  url.searchParams.set("accept-language", "en");
+  url.searchParams.set("accept-language", lang);
 
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
@@ -123,15 +128,24 @@ relation[boundary=administrative][admin_level=${adminLevel}](${b.s},${b.w},${b.n
 out geom;`;
 }
 
-function cacheKeyForBounds(adminLevel: number, b: BoundingBox): string {
+function cacheKeyForBounds(adminLevel: number, b: BoundingBox, lang: Lang): string {
   const r = (n: number) => n.toFixed(3);
-  return `bbox:${adminLevel}:${r(b.s)}_${r(b.w)}_${r(b.n)}_${r(b.e)}`;
+  return `bbox:${adminLevel}:${r(b.s)}_${r(b.w)}_${r(b.n)}_${r(b.e)}:${lang}`;
 }
 
-function featureName(props: Record<string, unknown> | null | undefined): string {
+function featureName(
+  props: Record<string, unknown> | null | undefined,
+  lang: Lang,
+): string {
   if (!props) return "Unnamed area";
+  // Prefer the localized name tag, then the generic name, then fallbacks.
   return String(
-    props.name ?? props["name:en"] ?? props["official_name"] ?? props.ref ?? "Unnamed area",
+    props[`name:${lang}`] ??
+      props.name ??
+      props["name:en"] ??
+      props["official_name"] ??
+      props.ref ??
+      "Unnamed area",
   );
 }
 
@@ -186,6 +200,7 @@ async function fetchAndCache(
   query: string,
   adminLevel: number,
   emptyMessage: string,
+  lang: Lang,
 ): Promise<StoredArea[]> {
   const json = await fetchOverpass(query);
   const fc = osmtogeojson(json);
@@ -201,7 +216,7 @@ async function fetchAndCache(
     };
     areas.push({
       id,
-      name: featureName(f.properties),
+      name: featureName(f.properties, lang),
       centroid: centroidOf(geometry),
       geometry,
     });
@@ -263,8 +278,9 @@ export async function getAreas(
   env: Env,
   parentRelId: number,
   adminLevel: number,
+  lang: Lang = "en",
 ): Promise<OsmAreasResponse> {
-  const cacheKey = cacheKeyFor(parentRelId, adminLevel);
+  const cacheKey = cacheKeyFor(parentRelId, adminLevel, lang);
   const stored =
     (await loadCached(env, cacheKey)) ??
     (await fetchAndCache(
@@ -273,6 +289,7 @@ export async function getAreas(
       parentQuery(parentRelId, adminLevel),
       adminLevel,
       `No administrative areas at level ${adminLevel} were found inside that boundary.`,
+      lang,
     ));
   return buildResponse(cacheKey, adminLevel, stored);
 }
@@ -282,8 +299,9 @@ export async function getAreasInBounds(
   env: Env,
   adminLevel: number,
   bounds: BoundingBox,
+  lang: Lang = "en",
 ): Promise<OsmAreasResponse> {
-  const cacheKey = cacheKeyForBounds(adminLevel, bounds);
+  const cacheKey = cacheKeyForBounds(adminLevel, bounds, lang);
   const stored =
     (await loadCached(env, cacheKey)) ??
     (await fetchAndCache(
@@ -292,6 +310,7 @@ export async function getAreasInBounds(
       boundsQuery(adminLevel, bounds),
       adminLevel,
       `No administrative areas at level ${adminLevel} were found in this map view.`,
+      lang,
     ));
   return buildResponse(cacheKey, adminLevel, stored);
 }

@@ -76,7 +76,7 @@ describe("validateChallengeJson", () => {
   it("rejects an import with no valid entries", () => {
     const res = validateChallengeJson("[]", areas);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("at least one");
+    if (!res.ok) expect(res.code).toBe("errNoEntries");
   });
 
   it("rejects a duplicate area entry", () => {
@@ -88,7 +88,10 @@ describe("validateChallengeJson", () => {
     ]);
     const res = validateChallengeJson(text, areas);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("more than once");
+    if (!res.ok) {
+      expect(res.code).toBe("errDuplicateEntry");
+      expect(res).toMatchObject({ params: { name: "North" } });
+    }
   });
 
   it("rejects an unknown area", () => {
@@ -99,7 +102,10 @@ describe("validateChallengeJson", () => {
     ]);
     const res = validateChallengeJson(text, areas);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("Nowhere");
+    if (!res.ok) {
+      expect(res.code).toBe("errUnknownArea");
+      expect(res).toMatchObject({ params: { name: "Nowhere" } });
+    }
   });
 
   it("rejects an empty challenge", () => {
@@ -110,7 +116,10 @@ describe("validateChallengeJson", () => {
     ]);
     const res = validateChallengeJson(text, areas);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("North");
+    if (!res.ok) {
+      expect(res.code).toBe("errEmptyChallenge");
+      expect(res).toMatchObject({ params: { name: "North" } });
+    }
   });
 
   it("rejects selections with duplicate area names", () => {
@@ -120,6 +129,6 @@ describe("validateChallengeJson", () => {
     ];
     const res = validateChallengeJson(JSON.stringify([entry("Center", "x")]), dupe);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("share a name");
+    if (!res.ok) expect(res.code).toBe("errDupeNames");
   });
 });

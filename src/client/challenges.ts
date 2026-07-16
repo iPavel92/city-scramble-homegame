@@ -1,26 +1,40 @@
+import type { Lang } from "../shared/i18n";
+
+// Validation failures reference an i18n key + params; the caller translates.
+export type ChallengeError =
+  | { code: "errNotJson" }
+  | { code: "errNotArray" }
+  | { code: "errDupeNames"; params: { name: string } }
+  | { code: "errMissingAreaName"; params: { index: number } }
+  | { code: "errEmptyChallenge"; params: { name: string } }
+  | { code: "errUnknownArea"; params: { name: string } }
+  | { code: "errDuplicateEntry"; params: { name: string } }
+  | { code: "errNoEntries" };
+
+export type ValidateResult =
+  | { ok: true; map: Record<string, string> }
+  | ({ ok: false } & ChallengeError);
+
 /**
  * Validate host-pasted challenge JSON against the currently selected areas.
  * Expects an array of { area, challenge } objects matched by area name.
  * Areas may be left out — those fall back to random default challenges at game
  * start — but each area may appear at most once, must be one of the selected
  * areas, and must have non-empty text. Returns a map of areaId → challenge text
- * for the areas that were provided.
+ * for the areas that were provided (or an i18n error code).
  */
 export function validateChallengeJson(
   text: string,
   areas: { id: string; name: string }[],
-): { ok: true; map: Record<string, string> } | { ok: false; error: string } {
+): ValidateResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    return {
-      ok: false,
-      error: "That's not valid JSON. Copy the template, fill in each challenge, and paste it back.",
-    };
+    return { ok: false, code: "errNotJson" };
   }
   if (!Array.isArray(parsed)) {
-    return { ok: false, error: 'The JSON must be an array of { "area", "challenge" } objects.' };
+    return { ok: false, code: "errNotArray" };
   }
 
   // Matching is by name, so the selected areas must have unique names.
@@ -31,10 +45,7 @@ export function validateChallengeJson(
     nameToId.set(a.name, a.id);
   }
   if (dupeNames.size > 0) {
-    return {
-      ok: false,
-      error: `Some selected areas share a name (e.g. "${[...dupeNames][0]}"), so challenges can't be matched by name.`,
-    };
+    return { ok: false, code: "errDupeNames", params: { name: [...dupeNames][0] } };
   }
 
   const map: Record<string, string> = {};
@@ -43,20 +54,17 @@ export function validateChallengeJson(
     const item = parsed[i] as { area?: unknown; challenge?: unknown };
     const area = typeof item?.area === "string" ? item.area.trim() : "";
     const challenge = typeof item?.challenge === "string" ? item.challenge.trim() : "";
-    if (!area) return { ok: false, error: `Entry ${i + 1} is missing an "area" name.` };
-    if (!challenge) return { ok: false, error: `The entry for "${area}" has an empty challenge.` };
+    if (!area) return { ok: false, code: "errMissingAreaName", params: { index: i + 1 } };
+    if (!challenge) return { ok: false, code: "errEmptyChallenge", params: { name: area } };
     const id = nameToId.get(area);
-    if (!id) return { ok: false, error: `"${area}" isn't one of the selected areas.` };
-    if (seen.has(id)) return { ok: false, error: `"${area}" appears more than once.` };
+    if (!id) return { ok: false, code: "errUnknownArea", params: { name: area } };
+    if (seen.has(id)) return { ok: false, code: "errDuplicateEntry", params: { name: area } };
     seen.add(id);
     map[id] = challenge;
   }
 
   if (Object.keys(map).length === 0) {
-    return {
-      ok: false,
-      error: "Add a challenge for at least one area, or switch to default challenges.",
-    };
+    return { ok: false, code: "errNoEntries" };
   }
 
   return { ok: true, map };
@@ -150,10 +158,10 @@ Only emit challenges that clear all four.`;
  * challenges. The areas list is the same JSON as the copy template; the
  * language is hard-coded to EN for now.
  */
-export function buildAiPrompt(areas: { name: string }[], language = "EN"): string {
+export function buildAiPrompt(areas: { name: string }[], lang: Lang = "en"): string {
   const areasJson = challengeTemplate(areas);
   return AI_PROMPT_TEMPLATE.replace("<AREAS_LIST>", () => areasJson).replace(
     "<LANGUAGE>",
-    () => language,
+    () => lang.toUpperCase(),
   );
 }

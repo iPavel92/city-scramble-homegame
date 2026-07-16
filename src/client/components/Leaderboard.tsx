@@ -1,4 +1,5 @@
 import type { ScoreEntry, Team } from "../../shared/types";
+import { useI18n } from "../i18n";
 
 export function Leaderboard({
   scores,
@@ -9,14 +10,15 @@ export function Leaderboard({
   teams: Team[];
   youTeamId: string;
 }) {
-  const teamById = new Map(teams.map((t) => [t.id, t]));
+  const { t } = useI18n();
+  const teamById = new Map(teams.map((tm) => [tm.id, tm]));
   const ranked = [...scores].sort(
     (a, b) => b.largestCluster - a.largestCluster || b.totalClaimed - a.totalClaimed,
   );
 
   return (
     <div className="leaderboard">
-      <div className="lb-title">Score</div>
+      <div className="lb-title">{t("scoreTitle")}</div>
       {ranked.map((s) => {
         const team = teamById.get(s.teamId);
         if (!team) return null;

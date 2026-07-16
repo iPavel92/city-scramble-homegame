@@ -4,6 +4,7 @@ import { computeAdjacency } from "./adjacency";
 import { simplifyGeometry } from "./geo";
 import { generateCode, generateToken } from "./decks";
 import { nextColor } from "../shared/colors";
+import { normalizeLang } from "../shared/i18n";
 import type {
   CreateLobbyRequest,
   CreateLobbyResponse,
@@ -42,19 +43,21 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
 
   if (request.method === "GET" && path === "/api/osm/search") {
     const q = url.searchParams.get("q") ?? "";
-    return json(await searchCity(env, q));
+    const lang = normalizeLang(url.searchParams.get("lang"));
+    return json(await searchCity(env, q, lang));
   }
 
   if (request.method === "GET" && path === "/api/osm/areas") {
     const parentId = Number(url.searchParams.get("parentId"));
     const adminLevel = Number(url.searchParams.get("adminLevel"));
+    const lang = normalizeLang(url.searchParams.get("lang"));
     if (!Number.isFinite(parentId) || !Number.isFinite(adminLevel)) {
       return fail("parentId and adminLevel are required.");
     }
     if (adminLevel < 8 || adminLevel > 10) {
       return fail("adminLevel must be between 8 and 10.");
     }
-    return json(await getAreas(env, parentId, adminLevel));
+    return json(await getAreas(env, parentId, adminLevel, lang));
   }
 
   if (request.method === "GET" && path === "/api/osm/areas-in-view") {
@@ -63,13 +66,14 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     const w = Number(url.searchParams.get("w"));
     const n = Number(url.searchParams.get("n"));
     const e = Number(url.searchParams.get("e"));
+    const lang = normalizeLang(url.searchParams.get("lang"));
     if (![adminLevel, s, w, n, e].every(Number.isFinite)) {
       return fail("adminLevel and bounds (s,w,n,e) are required.");
     }
     if (adminLevel < 8 || adminLevel > 10) {
       return fail("adminLevel must be between 8 and 10.");
     }
-    return json(await getAreasInBounds(env, adminLevel, { s, w, n, e }));
+    return json(await getAreasInBounds(env, adminLevel, { s, w, n, e }, lang));
   }
 
   if (request.method === "POST" && path === "/api/lobby") {
@@ -107,6 +111,7 @@ async function createLobby(request: Request, env: Env): Promise<Response> {
     return fail("Open deck size (X) can't exceed the number of selected areas.");
   }
   params.teamSize = params.teamSize === 2 ? 2 : 1;
+  params.challengeLang = normalizeLang(params.challengeLang);
 
   // Sanitize optional host-supplied challenges: keep only selected areas with
   // non-empty text, capped to a sane length.

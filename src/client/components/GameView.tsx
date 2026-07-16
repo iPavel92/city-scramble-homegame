@@ -5,6 +5,8 @@ import { MapView, type MapFeature } from "./MapView";
 import { Timer } from "./Timer";
 import { Leaderboard } from "./Leaderboard";
 import { ChallengeSheet } from "./ChallengeSheet";
+import { useI18n, type TranslateFn } from "../i18n";
+import type { TKey } from "../i18n/en";
 
 const GRAY = "#9ca3af"; // fallback fill for a claimed area with an unknown team
 const OPEN_FILL = "#4c5055"; // open-deck in-play fill (darkened toward black)
@@ -29,10 +31,10 @@ interface Pending {
   areaId: string;
 }
 
-const ANNOUNCE_TITLE: Record<AnnouncementKind, string> = {
-  claim: "Area claimed",
-  reveal: "New area in play",
-  removed: "Area removed",
+const ANNOUNCE_KEY: Record<AnnouncementKind, TKey> = {
+  claim: "announceClaim",
+  reveal: "announceReveal",
+  removed: "announceRemoved",
 };
 
 export function GameView({
@@ -48,6 +50,7 @@ export function GameView({
   onProtect: (areaId: string) => void;
   onReplace: (areaId: string) => void;
 }) {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [queue, setQueue] = useState<Announcement[]>([]);
@@ -87,7 +90,7 @@ export function GameView({
       else if (p.deck === "private") currMine.add(p.areaId); // my unlocked private areas
     }
     const currFlop = new Set(state.flopAreaIds);
-    const name = (id: string) => areaNameById.get(id) ?? "an area";
+    const name = (id: string) => areaNameById.get(id) ?? t("fallbackArea");
 
     const prev = prevRef.current;
     if (!prev.init) {
@@ -101,13 +104,16 @@ export function GameView({
       if (!prev.claims.has(areaId)) {
         boardChanged = true;
         if (teamId !== state.youTeamId) {
-          const t = teamById.get(teamId);
+          const team = teamById.get(teamId);
           next.push({
             id: `c${seqRef.current++}`,
             areaId,
             kind: "claim",
-            message: `${t?.name ?? "A team"} claimed ${name(areaId)}`,
-            color: t?.color,
+            message: t("msgTeamClaimed", {
+              team: team?.name ?? t("fallbackTeam"),
+              area: name(areaId),
+            }),
+            color: team?.color,
           });
         }
       }
@@ -120,7 +126,7 @@ export function GameView({
           id: `x${seqRef.current++}`,
           areaId,
           kind: "removed",
-          message: `${name(areaId)} was removed from play.`,
+          message: t("msgAreaRemoved", { area: name(areaId) }),
         });
       }
     }
@@ -131,7 +137,7 @@ export function GameView({
           id: `r${seqRef.current++}`,
           areaId,
           kind: "reveal",
-          message: `New area in play: ${name(areaId)}`,
+          message: t("msgNewAreaInPlay", { area: name(areaId) }),
         });
       }
     }
@@ -143,7 +149,7 @@ export function GameView({
           id: `p${seqRef.current++}`,
           areaId,
           kind: "reveal",
-          message: `New area in play: ${name(areaId)}`,
+          message: t("msgNewAreaInPlay", { area: name(areaId) }),
         });
       }
     }
@@ -151,7 +157,7 @@ export function GameView({
     prevRef.current = { claims: currClaims, flop: currFlop, mine: currMine, init: true };
     if (next.length) setQueue((q) => [...q, ...next]);
     if (boardChanged) setRefitNonce((n) => n + 1);
-  }, [state, teamById, areaNameById]);
+  }, [state, teamById, areaNameById, t]);
 
   const dismissAnnouncement = () => setQueue((q) => q.slice(1));
 
@@ -241,7 +247,7 @@ export function GameView({
   const selArea = selected ? state.areas.find((a) => a.id === selected) : null;
   const pendingArea = pending ? state.areas.find((a) => a.id === pending.areaId) : null;
 
-  const banner = redrawBanner(redraw, teamById, state.youTeamId);
+  const banner = redrawBanner(redraw, teamById, state.youTeamId, t);
 
   return (
     <div className="game-root">
@@ -258,7 +264,7 @@ export function GameView({
             <Timer
               endsAt={state.nextPrivateUnlockAt}
               offset={offset}
-              label="Next area"
+              label={t("nextAreaLabel")}
               small
             />
           )}
@@ -286,16 +292,16 @@ export function GameView({
         <div className="sheet-backdrop">
           <div className="sheet">
             <h3 style={{ margin: 0 }}>
-              {pending.type === "protect" ? "Protect area" : "Replace area"}
+              {pending.type === "protect" ? t("protectAreaTitle") : t("replaceAreaTitle")}
             </h3>
             <div className="challenge">
               {pending.type === "protect"
-                ? `Protect ${pendingArea.name}? The scored team won't be able to replace it.`
-                : `Send ${pendingArea.name} back to the deck and draw a new area?`}
+                ? t("protectConfirm", { area: pendingArea.name })
+                : t("replaceConfirm", { area: pendingArea.name })}
             </div>
             <div className="btn-row">
               <button className="btn ghost" onClick={() => setPending(null)}>
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 className="btn"
@@ -305,7 +311,7 @@ export function GameView({
                   setPending(null);
                 }}
               >
-                {pending.type === "protect" ? "Protect" : "Replace"}
+                {pending.type === "protect" ? t("protect") : t("replace")}
               </button>
             </div>
           </div>
@@ -317,12 +323,12 @@ export function GameView({
         <div className="sheet-backdrop">
           <div className="sheet" key={current.id}>
             <div className="row-between">
-              <h3 style={{ margin: 0 }}>{ANNOUNCE_TITLE[current.kind]}</h3>
+              <h3 style={{ margin: 0 }}>{t(ANNOUNCE_KEY[current.kind])}</h3>
               {current.color && <span className="dot" style={{ background: current.color }} />}
             </div>
             <div className="challenge">{current.message}</div>
             <button className="btn" onClick={dismissAnnouncement}>
-              OK
+              {t("ok")}
             </button>
           </div>
         </div>
@@ -337,20 +343,18 @@ function redrawBanner(
   redraw: GameStateView["redraw"],
   teamById: Map<string, Team>,
   youTeamId: string,
+  t: TranslateFn,
 ): string | null {
   if (!redraw) return null;
-  const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? "the leader";
-  if (redraw.youRole === "protector")
-    return "The scored team can replace one area from the open deck. Select the area you want to protect from it.";
-  if (redraw.youRole === "claimer") return "Tap an area to replace it.";
+  const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? t("fallbackLeader");
+  if (redraw.youRole === "protector") return t("bannerProtector");
+  if (redraw.youRole === "claimer") return t("bannerClaimer");
   // waiting
   if (redraw.stage === "protecting") {
-    if (youTeamId === redraw.claimerTeamId) {
-      return "Now you can replace one open deck area in the flop.\nWaiting for other teams to protect their areas.";
-    }
-    return "Waiting for other teams to protect their areas.";
+    if (youTeamId === redraw.claimerTeamId) return t("bannerClaimerWaiting");
+    return t("bannerProtectorWaiting");
   }
-  return `Waiting for ${claimerName} to replace an area…`;
+  return t("bannerWaitingForClaimer", { name: claimerName });
 }
 
 function ResultsOverlay({
@@ -361,6 +365,7 @@ function ResultsOverlay({
   teamById: Map<string, Team>;
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const winners = (state.winnerTeamIds ?? [])
     .map((id) => teamById.get(id))
     .filter(Boolean) as Team[];
@@ -372,40 +377,40 @@ function ResultsOverlay({
     <div className="overlay">
       <div className="trophy">🏆</div>
       {winners.length === 0 ? (
-        <h2>No areas were claimed</h2>
+        <h2>{t("noAreasClaimed")}</h2>
       ) : winners.length === 1 ? (
         <h2>
           <span
             className="dot"
             style={{ background: winners[0].color, display: "inline-block" }}
           />{" "}
-          {winners[0].name} wins!
+          {t("teamWins", { team: winners[0].name })}
         </h2>
       ) : (
-        <h2>It's a tie: {winners.map((w) => w.name).join(" & ")}</h2>
+        <h2>{t("itsATie", { names: winners.map((w) => w.name).join(" & ") })}</h2>
       )}
       <div className="card" style={{ width: "100%", maxWidth: 360 }}>
         {ranked.map((s) => {
-          const t = teamById.get(s.teamId);
-          if (!t) return null;
+          const team = teamById.get(s.teamId);
+          if (!team) return null;
           return (
             <div className="lb-row" key={s.teamId}>
-              <span className="dot" style={{ background: t.color }} />
-              <span className="name">{t.name}</span>
+              <span className="dot" style={{ background: team.color }} />
+              <span className="name">{team.name}</span>
               <span className="score">
                 {s.largestCluster}
                 <span style={{ color: "var(--text-dim)", fontWeight: 500 }}>
                   {" "}
-                  · {s.totalClaimed} total
+                  · {t("totalSuffix", { n: s.totalClaimed })}
                 </span>
               </span>
             </div>
           );
         })}
       </div>
-      <p className="hint">Largest connected cluster wins · ties broken by total areas.</p>
+      <p className="hint">{t("tiebreakNote")}</p>
       <button className="btn" style={{ maxWidth: 360 }} onClick={() => navigate("/")}>
-        Back to home
+        {t("backHome")}
       </button>
     </div>
   );

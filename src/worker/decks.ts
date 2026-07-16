@@ -1,4 +1,4 @@
-import { defaultChallengePool } from "../shared/challenges";
+import { defaultChallengePool } from "../shared/challenges.i18n";
 import type { GameParams } from "../shared/types";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O to avoid confusion
@@ -65,7 +65,9 @@ export function partition(
   // otherwise cycle a shuffled copy of the built-in pool (which includes the
   // teammate challenges when the game is set to 2-player teams).
   const challenges: Record<string, string> = {};
-  const shuffledChallenges = shuffle(defaultChallengePool(params.teamSize ?? 1));
+  const shuffledChallenges = shuffle(
+    defaultChallengePool(params.teamSize ?? 1, params.challengeLang ?? "en"),
+  );
   let ci = 0;
   const assign = (id: string) => {
     const custom = customChallenges?.[id]?.trim();

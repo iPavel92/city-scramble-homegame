@@ -4,10 +4,12 @@ import { getSession } from "../store";
 import { useLobby } from "../ws";
 import { LobbyView } from "../components/LobbyView";
 import { GameView } from "../components/GameView";
+import { useI18n } from "../i18n";
 
 export function Play() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const upper = code?.toUpperCase();
   const session = upper ? getSession(upper) : null;
 
@@ -37,7 +39,7 @@ export function Play() {
     return (
       <div className="screen centered">
         <div className="spinner" />
-        <p className="hint">{connected ? "Loading game…" : "Connecting…"}</p>
+        <p className="hint">{connected ? t("loadingGame") : t("connecting")}</p>
         {error && <div className="error-toast">{error}</div>}
       </div>
     );
