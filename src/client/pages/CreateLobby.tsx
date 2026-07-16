@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
-import { challengeTemplate, validateChallengeJson } from "../challenges";
+import { buildAiPrompt, challengeTemplate, validateChallengeJson } from "../challenges";
 import { defaultChallengePool } from "../../shared/challenges";
 import { AreaSelector, type AreaSelection } from "../components/AreaSelector";
 
@@ -31,6 +31,7 @@ export function CreateLobby() {
   const [importedChallenges, setImportedChallenges] = useState<Record<string, string> | null>(null);
   const [challengeMsg, setChallengeMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   // Step 4
   const [teamName, setTeamName] = useState("");
@@ -92,6 +93,20 @@ export function CreateLobby() {
       setChallengeText(text);
       setImportedChallenges(null);
       setChallengeMsg("Couldn't reach the clipboard — template placed in the box below.");
+    }
+  };
+
+  const copyAiPrompt = async () => {
+    const text = buildAiPrompt(selectedAreas);
+    try {
+      await navigator.clipboard.writeText(text);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      // No clipboard access — drop the prompt into the box to copy manually.
+      setChallengeText(text);
+      setImportedChallenges(null);
+      setChallengeMsg("Couldn't reach the clipboard — prompt placed in the box below.");
     }
   };
 
@@ -332,13 +347,14 @@ export function CreateLobby() {
                 <button className="btn secondary" onClick={copyTemplate}>
                   {copied ? "Copied!" : "Copy template"}
                 </button>
-                <button
-                  className="btn"
-                  disabled={!challengeText.trim()}
-                  onClick={importChallenges}
-                >
-                  Import challenges
+                <button className="btn secondary" onClick={copyAiPrompt}>
+                  {promptCopied ? "Copied!" : "Copy prompt for AI"}
                 </button>
+              </div>
+              <div className="field-hint" style={{ marginTop: 6 }}>
+                “Copy prompt for AI” builds a ready-to-paste prompt that generates
+                location-specific challenges for your selected areas. Paste the AI's JSON reply
+                below, then Import.
               </div>
               <textarea
                 className="challenge-box"
@@ -354,6 +370,13 @@ export function CreateLobby() {
                   }
                 }}
               />
+              <button
+                className="btn"
+                disabled={!challengeText.trim()}
+                onClick={importChallenges}
+              >
+                Import challenges
+              </button>
               {challengeMsg && (
                 <div className={`msg ${importedChallenges ? "ok" : "err"}`}>{challengeMsg}</div>
               )}

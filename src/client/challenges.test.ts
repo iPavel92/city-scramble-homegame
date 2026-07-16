@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { challengeTemplate, validateChallengeJson } from "./challenges";
+import { buildAiPrompt, challengeTemplate, validateChallengeJson } from "./challenges";
 
 const areas = [
   { id: "A", name: "North" },
@@ -17,6 +17,24 @@ describe("challengeTemplate", () => {
       { area: "South", challenge: "challenge-text" },
       { area: "East", challenge: "challenge-text" },
     ]);
+  });
+});
+
+describe("buildAiPrompt", () => {
+  it("embeds the areas JSON and fills both placeholders", () => {
+    const prompt = buildAiPrompt(areas);
+    expect(prompt).not.toContain("<AREAS_LIST>");
+    expect(prompt).not.toContain("<LANGUAGE>");
+    expect(prompt).toContain("Challenge language: EN");
+    // The injected areas list is exactly the copy-template JSON.
+    expect(prompt).toContain(challengeTemplate(areas));
+    expect(prompt).toContain('"area": "North"');
+  });
+
+  it("does not misinterpret $ sequences in the injected JSON", () => {
+    const dollar = [{ id: "A", name: "Café $ Bar $&" }];
+    const prompt = buildAiPrompt(dollar);
+    expect(prompt).toContain("Café $ Bar $&");
   });
 });
 
