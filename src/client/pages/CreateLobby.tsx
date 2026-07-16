@@ -343,19 +343,20 @@ export function CreateLobby() {
                 Copy the template, fill in the challenges you want, paste it back, then Import.
                 Matched by area name; any area you leave out uses a random default challenge.
               </div>
-              <div className="btn-row">
-                <button className="btn secondary" onClick={copyTemplate}>
-                  {copied ? "Copied!" : "Copy template"}
-                </button>
-                <button className="btn secondary" onClick={copyAiPrompt}>
-                  {promptCopied ? "Copied!" : "Copy prompt for AI"}
-                </button>
+              <button className="btn secondary" onClick={copyTemplate}>
+                {copied ? "Copied!" : "Copy template"}
+              </button>
+              <div className="field-hint" style={{ marginTop: 10 }}>
+                Or build a ready-to-paste prompt that generates location-specific challenges for
+                your selected areas. Run it in an AI, then paste the JSON reply below and Import.
               </div>
-              <div className="field-hint" style={{ marginTop: 6 }}>
-                “Copy prompt for AI” builds a ready-to-paste prompt that generates
-                location-specific challenges for your selected areas. Paste the AI's JSON reply
-                below, then Import.
-              </div>
+              <button
+                className="btn secondary"
+                style={{ marginTop: 6 }}
+                onClick={copyAiPrompt}
+              >
+                {promptCopied ? "Copied!" : "Copy prompt for AI"}
+              </button>
               <textarea
                 className="challenge-box"
                 value={challengeText}

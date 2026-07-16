@@ -12,7 +12,7 @@ const BORDER = "#000000"; // border for actual in-game areas
 const OUTLINE_BORDER = "#444444"; // gray border for non-in-game areas
 const HIGHLIGHT = "#fbbf24"; // announcement highlight
 const PROTECTED_FILL = "#1e2022"; // protected-area fill during a redraw (darkened)
-const SELECTED_BORDER = "#f97316"; // bright orange border for the chosen option
+const SELECTED_BORDER = "#38bdf8"; // neon blue (accent) border for the chosen option
 
 type AnnouncementKind = "claim" | "reveal" | "removed";
 
@@ -290,7 +290,7 @@ export function GameView({
             </h3>
             <div className="challenge">
               {pending.type === "protect"
-                ? `Protect ${pendingArea.name}? The scored team won't be able to remove it.`
+                ? `Protect ${pendingArea.name}? The scored team won't be able to replace it.`
                 : `Send ${pendingArea.name} back to the deck and draw a new area?`}
             </div>
             <div className="btn-row">
@@ -341,8 +341,8 @@ function redrawBanner(
   if (!redraw) return null;
   const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? "the leader";
   if (redraw.youRole === "protector")
-    return "The scored team can remove one gray open-deck area from the map.\nTap one to protect it.";
-  if (redraw.youRole === "claimer") return "Tap an unprotected gray area to replace it.";
+    return "The scored team can replace one area from the open deck. Select the area you want to protect from it.";
+  if (redraw.youRole === "claimer") return "Tap an area to replace it.";
   // waiting
   if (redraw.stage === "protecting") {
     if (youTeamId === redraw.claimerTeamId) {
