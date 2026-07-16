@@ -1,6 +1,7 @@
 import { type Dict } from "./en";
 
 export const de: Dict = {
+  "examplesHeader": "Beispiele:",
   "aboutAreaTypesTitle": "Gebietstypen",
   "aboutColorsIntro": "Sobald das Spiel beginnt, sind die Gebiete auf der Karte eingefärbt:",
   "aboutDisclaimerAfter": "-Mitwirkenden.",

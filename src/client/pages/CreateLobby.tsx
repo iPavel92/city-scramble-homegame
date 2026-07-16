@@ -314,6 +314,7 @@ export function CreateLobby() {
               <div className="field-hint">
                 {teamSize === 2 ? t("teamSize2Hint") : t("teamSize1Hint")}
               </div>
+              <div className="examples-header">{t("examplesHeader")}</div>
               <ul className="examples">
                 {exampleChallenges.map((c, i) => (
                   <li key={i}>{c}</li>

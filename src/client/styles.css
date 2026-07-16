@@ -200,6 +200,12 @@ textarea {
   flex: none;
   border: 1px solid var(--border);
 }
+.examples-header {
+  margin-top: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
 .examples {
   margin: 4px 0 6px;
   padding-left: 24px;

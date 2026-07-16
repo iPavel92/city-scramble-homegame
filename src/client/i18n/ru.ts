@@ -1,6 +1,7 @@
 import { type Dict } from "./en";
 
 export const ru: Dict = {
+  "examplesHeader": "Примеры:",
   "aboutAreaTypesTitle": "Типы зон",
   "aboutColorsIntro": "После старта игры зоны на карте окрашиваются:",
   "aboutDisclaimerAfter": ".",

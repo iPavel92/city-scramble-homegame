@@ -42,6 +42,7 @@ export const en = {
   twoPlayers: "2 players",
   teamSize2Hint: "Adds two-person teammate challenges to the pool.",
   teamSize1Hint: "Solo-friendly challenges only.",
+  examplesHeader: "Examples:",
   useCustomChallenges: "Use custom challenges",
   customChallengesIntro:
     "Copy the template, fill in the challenges you want, paste it back, then Import. Matched by area name; any area you leave out uses a random default challenge.",
