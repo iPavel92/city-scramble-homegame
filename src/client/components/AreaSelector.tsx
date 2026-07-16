@@ -38,6 +38,8 @@ export function AreaSelector({
     n: number;
     e: number;
   } | null>(null);
+  // When on, the level chips search the current map view instead of the city.
+  const [searchInView, setSearchInView] = useState(false);
   // Bumped only when we want the map to refit (parent/level search), not on a
   // "search this view" query, so the framed viewport stays put.
   const [fitNonce, setFitNonce] = useState(0);
@@ -187,33 +189,35 @@ export function AreaSelector({
 
       {sel.parent && (
         <div>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={searchInView}
+              onChange={(e) => setSearchInView(e.target.checked)}
+            />
+            <span>Search in this map view instead of city</span>
+          </label>
+
           <label>Sub-division level</label>
           <div className="chips">
             {[8, 9, 10].map((lvl) => (
               <button
                 key={lvl}
                 className={`chip ${sel.adminLevel === lvl ? "active" : ""}`}
-                onClick={() => sel.parent && void loadAreas(sel.parent, lvl)}
+                disabled={loadingAreas || (searchInView && !viewBounds)}
+                onClick={() => {
+                  if (searchInView) void loadAreasInView(lvl);
+                  else if (sel.parent) void loadAreas(sel.parent, lvl);
+                }}
               >
                 Level {lvl}
               </button>
             ))}
           </div>
           <div className="field-hint">
-            Level 8 ≈ municipalities/suburbs · 9–10 ≈ neighbourhoods (availability varies by
-            country).
-          </div>
-          <button
-            className="btn secondary"
-            style={{ marginTop: 8 }}
-            disabled={!viewBounds || loadingAreas}
-            onClick={() => void loadAreasInView(sel.adminLevel)}
-          >
-            Search level {sel.adminLevel} in this map view
-          </button>
-          <div className="field-hint">
-            Finds all level-{sel.adminLevel} areas in the current view, even across other
-            cities. Pan/zoom the map first.
+            {searchInView
+              ? "Searches this level across the current map view, even other cities. Pan/zoom the map first."
+              : "Level 8 ≈ municipalities/suburbs · 9–10 ≈ neighbourhoods (availability varies by country)."}
           </div>
         </div>
       )}

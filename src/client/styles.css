@@ -149,6 +149,21 @@ select:focus {
   color: var(--text-dim);
   margin-top: 4px;
 }
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--accent);
+}
+.toggle-row span {
+  font-weight: 600;
+}
 
 .card {
   background: var(--bg-elev);
