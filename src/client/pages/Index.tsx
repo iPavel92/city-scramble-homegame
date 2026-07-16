@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import logoUrl from "../assets/logo.png";
 
 export function Index() {
   const navigate = useNavigate();
   return (
     <div className="screen centered">
       <div>
-        <div className="brand">City Scramble</div>
+        <img src={logoUrl} alt="City Scramble" className="brand-logo" />
         <p className="tagline">
           Claim city districts in the real world. Biggest connected cluster wins.
         </p>

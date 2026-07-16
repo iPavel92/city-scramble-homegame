@@ -75,6 +75,13 @@ a {
   color: transparent;
   text-align: center;
 }
+.brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: 0 auto 4px;
+}
 .tagline {
   text-align: center;
   margin-bottom: 8px;
