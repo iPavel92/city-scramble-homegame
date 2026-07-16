@@ -106,6 +106,7 @@ async function createLobby(request: Request, env: Env): Promise<Response> {
   if (params.openInPlay > selectedAreaIds.length) {
     return fail("Open deck size (X) can't exceed the number of selected areas.");
   }
+  params.teamSize = params.teamSize === 2 ? 2 : 1;
 
   // Sanitize optional host-supplied challenges: keep only selected areas with
   // non-empty text, capped to a sane length.

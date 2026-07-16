@@ -40,6 +40,8 @@ export interface GameParams {
   openInPlay: number;
   /** Interval between unlocking each further private area (ms). 0 = all at start. */
   privateUnlockPeriodMs: number;
+  /** Players per team (1 or 2). 2 adds teammate challenges to the default pool. */
+  teamSize?: number;
 }
 
 export interface Claim {

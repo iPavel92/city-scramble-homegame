@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
 import { challengeTemplate, validateChallengeJson } from "../challenges";
-import { CHALLENGES } from "../../shared/challenges";
+import { defaultChallengePool } from "../../shared/challenges";
 import { AreaSelector, type AreaSelection } from "../components/AreaSelector";
 
 type ChallengeMode = "default" | "custom";
@@ -26,6 +26,7 @@ export function CreateLobby() {
 
   // Step 3 challenges
   const [challengeMode, setChallengeMode] = useState<ChallengeMode>("default");
+  const [teamSize, setTeamSize] = useState(1);
   const [challengeText, setChallengeText] = useState("");
   const [importedChallenges, setImportedChallenges] = useState<Record<string, string> | null>(null);
   const [challengeMsg, setChallengeMsg] = useState<string | null>(null);
@@ -69,15 +70,16 @@ export function CreateLobby() {
 
   const step3Ok = challengeMode === "default" || importedChallenges !== null;
 
-  // Three random challenges shown as examples of the default pool.
+  // Three random challenges shown as examples of the default pool. Reshuffles
+  // when the team size changes so teammate challenges can appear for 2-player.
   const exampleChallenges = useMemo(() => {
-    const pool = [...CHALLENGES];
+    const pool = defaultChallengePool(teamSize);
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     return pool.slice(0, 3);
-  }, []);
+  }, [teamSize]);
 
   const copyTemplate = async () => {
     const text = challengeTemplate(selectedAreas);
@@ -112,7 +114,13 @@ export function CreateLobby() {
       const res = await api.createLobby({
         cacheKey: sel.cacheKey,
         selectedAreaIds: sel.selectedIds,
-        params: { timeLimitMs, privateDeckSize: y, openInPlay: x, privateUnlockPeriodMs },
+        params: {
+          timeLimitMs,
+          privateDeckSize: y,
+          openInPlay: x,
+          privateUnlockPeriodMs,
+          teamSize: challengeMode === "default" ? teamSize : 1,
+        },
         teamName: teamName.trim(),
         customChallenges:
           challengeMode === "custom" ? importedChallenges ?? undefined : undefined,
@@ -269,11 +277,33 @@ export function CreateLobby() {
             <span>Use default generic challenges</span>
           </label>
           {challengeMode === "default" && (
-            <ul className="examples">
-              {exampleChallenges.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
+            <div style={{ marginTop: 8 }}>
+              <label>Team size</label>
+              <div className="chips">
+                <button
+                  className={`chip ${teamSize === 1 ? "active" : ""}`}
+                  onClick={() => setTeamSize(1)}
+                >
+                  1 player
+                </button>
+                <button
+                  className={`chip ${teamSize === 2 ? "active" : ""}`}
+                  onClick={() => setTeamSize(2)}
+                >
+                  2 players
+                </button>
+              </div>
+              <div className="field-hint">
+                {teamSize === 2
+                  ? "Adds two-person teammate challenges to the pool."
+                  : "Solo-friendly challenges only."}
+              </div>
+              <ul className="examples">
+                {exampleChallenges.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
           )}
           <label className="toggle-row">
             <input

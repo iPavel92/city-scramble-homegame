@@ -66,3 +66,31 @@ export const CHALLENGES: string[] = [
   "Buy a small stuffed animal or figurine, name it, and keep it for the rest of the game.",
   "Wear an item of clothing bought secondhand for the rest of the day.",
 ];
+
+// Extra challenges that require two teammates. Added to the pool only when the
+// host sets a team size of 2 players.
+export const TEAMMATE_CHALLENGES: string[] = [
+  "Give your teammate a piggyback ride around a park's perimeter.",
+  "Make a 30-second parkour video featuring both teammates.",
+  "Find a Just Dance YouTube video. Make a 30-second video of you dancing it together.",
+  "Communicate by Morse: stand 20 ft [6 m] apart, one signals an 8-letter word, the other decodes it.",
+  "Be familiar with your teammate's pace: one runs to a spot 250–500 ft [75–150 m] away, the other predicts the time within 15%. If failed, repeat after 5 minutes. No practice.",
+  "Buy the same thing as your teammate: one buys an item, the blindfolded partner inspects it then buys the same.",
+  "Distinguish wines blindfolded: one partner buys 3 wines, the blindfolded partner identifies each.",
+  "Identify chocolates blindfolded: one buys filled chocolates, the partner outside guesses each filling.",
+  "Taste-test local foods: one feeds 3 items in one bite to the blindfolded partner, who identifies which 3.",
+  "One teammate secretly draws a landscape for 3 minutes; afterward, the other names 10 things that must be in the drawing.",
+  "Stand at least 20 ft [6 m] apart in a park and communicate a random 6-letter word using only hand signals; one guess, retry with a new word if wrong.",
+  "Stand 30 ft [9 m] apart in a square and toss a soft object back and forth 10 times in a row without dropping it.",
+  "One teammate hides a small object within a 50 ft [15 m] radius in a park; the other has 1 minute to find it using only \"warmer/colder\" calls.",
+  "Balance a stick or pole horizontally between your two index fingers and walk 50 ft [15 m] in a plaza without it falling.",
+  "Both teammates hold a plank at the same time in a public square for 90 seconds.",
+];
+
+/**
+ * The default challenge pool for a given team size. Two-player teams get the
+ * base pool plus the teammate-only challenges.
+ */
+export function defaultChallengePool(teamSize: number): string[] {
+  return teamSize >= 2 ? [...CHALLENGES, ...TEAMMATE_CHALLENGES] : [...CHALLENGES];
+}
