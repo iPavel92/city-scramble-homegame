@@ -16,6 +16,9 @@ export function Index() {
       <button className="btn secondary" onClick={() => navigate("/join")}>
         Join a game
       </button>
+      <button className="btn ghost" onClick={() => navigate("/about")}>
+        Rules / About
+      </button>
       <p className="attribution">Map data © OpenStreetMap contributors</p>
     </div>
   );
