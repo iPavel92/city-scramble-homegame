@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
 import { useI18n } from "../i18n";
+import { isLang } from "../../shared/i18n";
 
 export function JoinLobby() {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, setLang } = useI18n();
   const [params] = useSearchParams();
   const [code, setCode] = useState((params.get("code") ?? "").toUpperCase());
+
+  // Adopt the host's language from the invite link, if present and supported.
+  const linkLang = params.get("lang");
+  useEffect(() => {
+    if (linkLang && isLang(linkLang)) setLang(linkLang);
+  }, [linkLang, setLang]);
   const [teamName, setTeamName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

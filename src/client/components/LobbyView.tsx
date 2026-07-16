@@ -14,11 +14,13 @@ export function LobbyView({
   onStart: () => void;
 }) {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const copyLink = async () => {
-    const link = `${location.origin}/join?code=${state.code}`;
+    // Carry the host's language so a teammate who joins by link matches it.
+    const linkLang = state.params.challengeLang ?? lang;
+    const link = `${location.origin}/join?code=${state.code}&lang=${linkLang}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
