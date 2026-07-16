@@ -341,8 +341,8 @@ function redrawBanner(
   if (!redraw) return null;
   const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? "the leader";
   if (redraw.youRole === "protector")
-    return "The scored team can remove one grey open-deck area from the map.\nTap one to protect it.";
-  if (redraw.youRole === "claimer") return "Tap an unprotected grey area to replace it.";
+    return "The scored team can remove one gray open-deck area from the map.\nTap one to protect it.";
+  if (redraw.youRole === "claimer") return "Tap an unprotected gray area to replace it.";
   // waiting
   if (redraw.stage === "protecting") {
     if (youTeamId === redraw.claimerTeamId) {
