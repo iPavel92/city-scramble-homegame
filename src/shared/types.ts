@@ -144,6 +144,8 @@ export interface CreateLobbyRequest {
   selectedAreaIds: string[];
   params: GameParams;
   teamName: string;
+  /** Optional per-area challenge overrides (areaId → challenge text). */
+  customChallenges?: Record<string, string>;
 }
 
 export interface CreateLobbyResponse {

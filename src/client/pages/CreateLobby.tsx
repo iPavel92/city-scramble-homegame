@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
+import { challengeTemplate, validateChallengeJson } from "../challenges";
 import { AreaSelector, type AreaSelection } from "../components/AreaSelector";
+
+type ChallengeMode = "default" | "custom";
 
 export function CreateLobby() {
   const navigate = useNavigate();
@@ -20,7 +23,14 @@ export function CreateLobby() {
   // to ~10% of the selected areas when entering the settings step).
   const [deckSizesTouched, setDeckSizesTouched] = useState(false);
 
-  // Step 3
+  // Step 3 challenges
+  const [challengeMode, setChallengeMode] = useState<ChallengeMode>("default");
+  const [challengeText, setChallengeText] = useState("");
+  const [importedChallenges, setImportedChallenges] = useState<Record<string, string> | null>(null);
+  const [challengeMsg, setChallengeMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Step 4
   const [teamName, setTeamName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +53,46 @@ export function CreateLobby() {
     y * 1 + x <= selectedCount && // host alone; more teams checked at start
     unlockOk;
 
+  // The set of areas that will actually be in the game (id + name).
+  const selectedAreas = useMemo(
+    () => (sel ? sel.areas.filter((a) => sel.selectedIds.includes(a.id)) : []),
+    [sel],
+  );
+
+  // If the game area changes, any imported challenges no longer apply — drop them.
+  const selectionKey = sel ? sel.selectedIds.slice().sort().join("|") : "";
+  useEffect(() => {
+    setImportedChallenges(null);
+    setChallengeMsg(null);
+  }, [selectionKey]);
+
+  const step3Ok = challengeMode === "default" || importedChallenges !== null;
+
+  const copyTemplate = async () => {
+    const text = challengeTemplate(selectedAreas);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // No clipboard access — drop the template into the box to copy manually.
+      setChallengeText(text);
+      setImportedChallenges(null);
+      setChallengeMsg("Couldn't reach the clipboard — template placed in the box below.");
+    }
+  };
+
+  const importChallenges = () => {
+    const result = validateChallengeJson(challengeText, selectedAreas);
+    if (!result.ok) {
+      setImportedChallenges(null);
+      setChallengeMsg(result.error);
+      return;
+    }
+    setImportedChallenges(result.map);
+    setChallengeMsg(`Validated — custom challenges set for all ${selectedAreas.length} areas.`);
+  };
+
   const create = async () => {
     if (!sel) return;
     setBusy(true);
@@ -53,6 +103,8 @@ export function CreateLobby() {
         selectedAreaIds: sel.selectedIds,
         params: { timeLimitMs, privateDeckSize: y, openInPlay: x, privateUnlockPeriodMs },
         teamName: teamName.trim(),
+        customChallenges:
+          challengeMode === "custom" ? importedChallenges ?? undefined : undefined,
       });
       saveSession({
         code: res.code,
@@ -72,7 +124,7 @@ export function CreateLobby() {
   return (
     <div className="screen">
       <div className="steps">
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4].map((n) => (
           <div key={n} className={`step ${step >= n ? "active" : ""}`} />
         ))}
       </div>
@@ -191,6 +243,84 @@ export function CreateLobby() {
 
       {step === 3 && (
         <div className="wizard-body">
+          <h2>Challenges</h2>
+          <p className="field-hint">
+            Each area gets a challenge a team must complete to claim it.
+          </p>
+
+          <label className="toggle-row">
+            <input
+              type="radio"
+              name="challenge-mode"
+              checked={challengeMode === "default"}
+              onChange={() => setChallengeMode("default")}
+            />
+            <span>Use default generic challenges</span>
+          </label>
+          <label className="toggle-row">
+            <input
+              type="radio"
+              name="challenge-mode"
+              checked={challengeMode === "custom"}
+              onChange={() => setChallengeMode("custom")}
+            />
+            <span>Use custom challenges</span>
+          </label>
+
+          {challengeMode === "custom" && (
+            <div style={{ marginTop: 12 }}>
+              <div className="field-hint" style={{ marginBottom: 8 }}>
+                Copy the template, fill in a challenge for each area, paste it back, then Import.
+                One entry per area, matched by name.
+              </div>
+              <div className="btn-row">
+                <button className="btn secondary" onClick={copyTemplate}>
+                  {copied ? "Copied!" : "Copy template"}
+                </button>
+                <button
+                  className="btn"
+                  disabled={!challengeText.trim()}
+                  onClick={importChallenges}
+                >
+                  Import challenges
+                </button>
+              </div>
+              <textarea
+                className="challenge-box"
+                value={challengeText}
+                placeholder='[{"area":"...","challenge":"..."}]'
+                spellCheck={false}
+                onChange={(e) => {
+                  setChallengeText(e.target.value);
+                  // Editing invalidates a prior import until re-validated.
+                  if (importedChallenges) {
+                    setImportedChallenges(null);
+                    setChallengeMsg(null);
+                  }
+                }}
+              />
+              {challengeMsg && (
+                <div className={`msg ${importedChallenges ? "ok" : "err"}`}>{challengeMsg}</div>
+              )}
+            </div>
+          )}
+
+          <div className="btn-row" style={{ marginTop: "auto" }}>
+            <button className="btn ghost" onClick={() => setStep(2)}>
+              Back
+            </button>
+            <button className="btn" disabled={!step3Ok} onClick={() => setStep(4)}>
+              Next
+            </button>
+          </div>
+          {challengeMode === "custom" && !step3Ok && (
+            <div className="hint">Import your challenges to continue.</div>
+          )}
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="wizard-body">
           <h2>Your team</h2>
           <label htmlFor="host-team">Team name</label>
           <input
@@ -204,7 +334,7 @@ export function CreateLobby() {
           />
           <div className="field-hint">You are the host and can start the game.</div>
           <div className="btn-row" style={{ marginTop: "auto" }}>
-            <button className="btn ghost" onClick={() => setStep(2)}>
+            <button className="btn ghost" onClick={() => setStep(3)}>
               Back
             </button>
             <button

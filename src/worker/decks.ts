@@ -42,6 +42,7 @@ export function partition(
   areaIds: string[],
   teamIds: string[],
   params: GameParams,
+  customChallenges?: Record<string, string>,
 ): DeckLayout {
   const Y = Math.max(0, Math.floor(params.privateDeckSize));
   const X = Math.max(1, Math.floor(params.openInPlay));
@@ -60,11 +61,17 @@ export function partition(
   const flop = pool.splice(0, X); // in play now
   const deck = pool; // remaining, drawn later
 
-  // Assign a challenge to every area (cycling a shuffled pool if needed).
+  // Assign a challenge to every area: use the host's custom text when provided,
+  // otherwise cycle a shuffled copy of the built-in pool.
   const challenges: Record<string, string> = {};
   const shuffledChallenges = shuffle([...CHALLENGES]);
   let ci = 0;
   const assign = (id: string) => {
+    const custom = customChallenges?.[id]?.trim();
+    if (custom) {
+      challenges[id] = custom;
+      return;
+    }
     challenges[id] = shuffledChallenges[ci % shuffledChallenges.length];
     ci++;
   };

@@ -130,7 +130,8 @@ label {
   font-size: 0.92rem;
 }
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 13px 14px;
   border-radius: 12px;
@@ -140,9 +141,31 @@ select {
   font-size: 1rem;
 }
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid var(--accent);
   border-color: var(--accent);
+}
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+.challenge-box {
+  min-height: 200px;
+  margin-top: 10px;
+}
+.msg {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 8px;
+}
+.msg.err {
+  color: var(--danger);
+}
+.msg.ok {
+  color: var(--ok);
 }
 .field-hint {
   font-size: 0.8rem;
@@ -155,7 +178,8 @@ select:focus {
   gap: 10px;
   cursor: pointer;
 }
-.toggle-row input[type="checkbox"] {
+.toggle-row input[type="checkbox"],
+.toggle-row input[type="radio"] {
   width: 20px;
   height: 20px;
   flex: none;

@@ -43,6 +43,8 @@ export interface InitPayload {
   adjacency: Adjacency;
   params: GameParams;
   hostTeam: TeamRecord;
+  /** Optional per-area challenge overrides (areaId → text). */
+  customChallenges?: Record<string, string>;
 }
 
 export type JoinResult =
@@ -73,6 +75,8 @@ interface MetaState {
   /** Remaining open-deck areas; drawn from the front, returned to the back. */
   deck: string[];
   challenges: Record<string, string>;
+  /** Host-supplied challenge overrides, applied when the game starts. */
+  customChallenges?: Record<string, string>;
   claims: Record<string, Claim>;
   redraw: RedrawState | null;
   startedAt?: number;
@@ -141,6 +145,7 @@ export class GameLobby extends DurableObject<Env> {
       flop: [],
       deck: [],
       challenges: {},
+      customChallenges: payload.customChallenges,
       claims: {},
       redraw: null,
     };
@@ -290,6 +295,7 @@ export class GameLobby extends DurableObject<Env> {
         m.areaIds,
         m.teams.map((t) => t.id),
         m.params,
+        m.customChallenges,
       );
       m.privateDecks = layout.privateDecks;
       m.flop = layout.flop;

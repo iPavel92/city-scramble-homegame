@@ -86,7 +86,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
 
 async function createLobby(request: Request, env: Env): Promise<Response> {
   const body = (await request.json()) as CreateLobbyRequest;
-  const { cacheKey, selectedAreaIds, params, teamName } = body;
+  const { cacheKey, selectedAreaIds, params, teamName, customChallenges } = body;
 
   if (!cacheKey) return fail("Missing map data reference.");
   if (!Array.isArray(selectedAreaIds) || selectedAreaIds.length === 0) {
@@ -105,6 +105,20 @@ async function createLobby(request: Request, env: Env): Promise<Response> {
   }
   if (params.openInPlay > selectedAreaIds.length) {
     return fail("Open deck size (X) can't exceed the number of selected areas.");
+  }
+
+  // Sanitize optional host-supplied challenges: keep only selected areas with
+  // non-empty text, capped to a sane length.
+  let custom: Record<string, string> | undefined;
+  if (customChallenges && typeof customChallenges === "object") {
+    const selectedSet = new Set(selectedAreaIds);
+    custom = {};
+    for (const [id, text] of Object.entries(customChallenges)) {
+      if (selectedSet.has(id) && typeof text === "string" && text.trim()) {
+        custom[id] = text.trim().slice(0, 400);
+      }
+    }
+    if (Object.keys(custom).length === 0) custom = undefined;
   }
 
   const full = await loadFullAreas(env, cacheKey, selectedAreaIds);
@@ -130,7 +144,7 @@ async function createLobby(request: Request, env: Env): Promise<Response> {
     const stub = env.LOBBY.get(env.LOBBY.idFromName(candidate));
     if (!(await stub.isInitialized())) {
       code = candidate;
-      await stub.init({ code, areas, adjacency, params, hostTeam });
+      await stub.init({ code, areas, adjacency, params, hostTeam, customChallenges: custom });
       break;
     }
   }
