@@ -37,51 +37,8 @@ export function GameView({
     init: false,
   });
   const seqRef = useRef(0);
-
-  // Optional device location — best-effort, never blocks gameplay.
-  const [userPos, setUserPos] = useState<[number, number] | null>(null);
-  const [recenter, setRecenter] = useState(0);
-  const watchRef = useRef<number | null>(null);
-  const wantCenterRef = useRef(false);
-  const geoAvailable = typeof navigator !== "undefined" && "geolocation" in navigator;
-
-  const locateMe = () => {
-    if (!geoAvailable) return;
-    wantCenterRef.current = true;
-    if (watchRef.current != null) {
-      if (userPos) {
-        setRecenter((n) => n + 1);
-        wantCenterRef.current = false;
-      }
-      return;
-    }
-    try {
-      watchRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          setUserPos([pos.coords.longitude, pos.coords.latitude]);
-          if (wantCenterRef.current) {
-            wantCenterRef.current = false;
-            setRecenter((n) => n + 1);
-          }
-        },
-        () => {
-          /* permission denied / unavailable — ignore, stay non-blocking */
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
-      );
-    } catch {
-      /* ignore */
-    }
-  };
-
-  useEffect(
-    () => () => {
-      if (watchRef.current != null && geoAvailable) {
-        navigator.geolocation.clearWatch(watchRef.current);
-      }
-    },
-    [geoAvailable],
-  );
+  // Bumped on any claim/reveal to refit the map to the whole game area.
+  const [refitNonce, setRefitNonce] = useState(0);
 
   const teamById = useMemo(() => new Map(state.teams.map((t) => [t.id, t])), [state.teams]);
   const you = teamById.get(state.youTeamId);
@@ -111,21 +68,26 @@ export function GameView({
     }
 
     const next: Announcement[] = [];
-    // Newly claimed areas (shown to everyone except the team that claimed it).
+    let boardChanged = false;
+    // Newly claimed areas (message shown to everyone except the claiming team).
     for (const [areaId, teamId] of currClaims) {
-      if (!prev.claims.has(areaId) && teamId !== state.youTeamId) {
-        const t = teamById.get(teamId);
-        next.push({
-          id: `c${seqRef.current++}`,
-          areaId,
-          message: `${t?.name ?? "A team"} claimed ${areaNameById.get(areaId) ?? "an area"}`,
-          color: t?.color,
-        });
+      if (!prev.claims.has(areaId)) {
+        boardChanged = true;
+        if (teamId !== state.youTeamId) {
+          const t = teamById.get(teamId);
+          next.push({
+            id: `c${seqRef.current++}`,
+            areaId,
+            message: `${t?.name ?? "A team"} claimed ${areaNameById.get(areaId) ?? "an area"}`,
+            color: t?.color,
+          });
+        }
       }
     }
     // Newly revealed open-deck areas (shown to all teams).
     for (const areaId of currOpen) {
       if (!prev.open.has(areaId)) {
+        boardChanged = true;
         next.push({
           id: `r${seqRef.current++}`,
           areaId,
@@ -136,6 +98,8 @@ export function GameView({
 
     prevRef.current = { claims: currClaims, open: currOpen, init: true };
     if (next.length) setQueue((q) => [...q, ...next]);
+    // On any claim or newly in-play area, refit the map to the whole game area.
+    if (boardChanged) setRefitNonce((n) => n + 1);
   }, [state, teamById, areaNameById]);
 
   // Announcements are blocking — dismissed one at a time via the OK button.
@@ -186,8 +150,7 @@ export function GameView({
         features={features}
         fitSignature={state.code}
         className="map fullscreen"
-        userPosition={userPos}
-        recenter={recenter}
+        refitNonce={refitNonce}
       />
       <div className="hud-top">
         <div className="hud-right">
@@ -195,17 +158,6 @@ export function GameView({
           <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
         </div>
       </div>
-
-      {geoAvailable && (
-        <button
-          className={`locate-btn ${userPos ? "active" : ""}`}
-          onClick={locateMe}
-          aria-label="Show my position"
-          title="Show my position"
-        >
-          📍
-        </button>
-      )}
 
       {selPlacement?.claimable && selArea && !current && (
         <ChallengeSheet

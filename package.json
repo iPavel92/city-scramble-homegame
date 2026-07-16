@@ -21,6 +21,7 @@
     "@turf/line-overlap": "^7.3.5",
     "@turf/simplify": "^7.3.5",
     "leaflet": "^1.9.4",
+    "leaflet.locatecontrol": "^0.90.0",
     "osmtogeojson": "^3.0.0-beta.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
