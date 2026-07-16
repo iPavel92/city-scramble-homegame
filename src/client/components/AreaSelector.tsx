@@ -32,6 +32,15 @@ export function AreaSelector({
   const [searching, setSearching] = useState(false);
   const [loadingAreas, setLoadingAreas] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewBounds, setViewBounds] = useState<{
+    s: number;
+    w: number;
+    n: number;
+    e: number;
+  } | null>(null);
+  // Bumped only when we want the map to refit (parent/level search), not on a
+  // "search this view" query, so the framed viewport stays put.
+  const [fitNonce, setFitNonce] = useState(0);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -74,9 +83,32 @@ export function AreaSelector({
         // keep only still-valid selections
         selectedIds: s.selectedIds.filter((id) => res.areas.some((a) => a.id === id)),
       }));
+      setFitNonce((n) => n + 1); // refit to the new parent/level result
     } catch (e) {
       setError((e as Error).message);
       setSel((s) => ({ ...s, parent, adminLevel, areas: [], cacheKey: "", selectedIds: [] }));
+    } finally {
+      setLoadingAreas(false);
+    }
+  };
+
+  // Re-run the search for the current level within the current map viewport
+  // (may include areas from other cities). Keeps the current framing.
+  const loadAreasInView = async (adminLevel: number) => {
+    if (!viewBounds) return;
+    setLoadingAreas(true);
+    setError(null);
+    try {
+      const res = await api.areasInView(adminLevel, viewBounds);
+      setSel((s) => ({
+        ...s,
+        adminLevel,
+        cacheKey: res.cacheKey,
+        areas: res.areas,
+        selectedIds: s.selectedIds.filter((id) => res.areas.some((a) => a.id === id)),
+      }));
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setLoadingAreas(false);
     }
@@ -171,6 +203,18 @@ export function AreaSelector({
             Level 8 ≈ municipalities/suburbs · 9–10 ≈ neighbourhoods (availability varies by
             country).
           </div>
+          <button
+            className="btn secondary"
+            style={{ marginTop: 8 }}
+            disabled={!viewBounds || loadingAreas}
+            onClick={() => void loadAreasInView(sel.adminLevel)}
+          >
+            Search level {sel.adminLevel} in this map view
+          </button>
+          <div className="field-hint">
+            Finds all level-{sel.adminLevel} areas in the current view, even across other
+            cities. Pan/zoom the map first.
+          </div>
         </div>
       )}
 
@@ -198,7 +242,12 @@ export function AreaSelector({
               Deselect all
             </button>
           </div>
-          <MapView features={features} fitSignature={sel.cacheKey} className="map grow" />
+          <MapView
+            features={features}
+            fitSignature={String(fitNonce)}
+            className="map grow"
+            onBoundsChange={setViewBounds}
+          />
           <div className="hint">Tap areas on the map to include them in the game.</div>
         </>
       )}

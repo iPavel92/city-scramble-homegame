@@ -101,11 +101,31 @@ export async function searchCity(env: Env, query: string): Promise<OsmSearchResu
 
 // ---------------- Overpass child areas ----------------
 
-function buildOverpassQuery(parentRelId: number, adminLevel: number): string {
+/** [south, west, north, east] map viewport. */
+export interface BoundingBox {
+  s: number;
+  w: number;
+  n: number;
+  e: number;
+}
+
+function parentQuery(parentRelId: number, adminLevel: number): string {
   return `[out:json][timeout:90];
 area(${AREA_ID + parentRelId})->.searchArea;
 relation[boundary=administrative][admin_level=${adminLevel}](area.searchArea);
 out geom;`;
+}
+
+function boundsQuery(adminLevel: number, b: BoundingBox): string {
+  // Overpass bounding-box filter order is (south, west, north, east).
+  return `[out:json][timeout:90];
+relation[boundary=administrative][admin_level=${adminLevel}](${b.s},${b.w},${b.n},${b.e});
+out geom;`;
+}
+
+function cacheKeyForBounds(adminLevel: number, b: BoundingBox): string {
+  const r = (n: number) => n.toFixed(3);
+  return `bbox:${adminLevel}:${r(b.s)}_${r(b.w)}_${r(b.n)}_${r(b.e)}`;
 }
 
 function featureName(props: Record<string, unknown> | null | undefined): string {
@@ -160,12 +180,13 @@ async function fetchOverpass(query: string): Promise<unknown> {
   );
 }
 
-async function fetchAndCacheAreas(
+async function fetchAndCache(
   env: Env,
-  parentRelId: number,
+  cacheKey: string,
+  query: string,
   adminLevel: number,
+  emptyMessage: string,
 ): Promise<StoredArea[]> {
-  const query = buildOverpassQuery(parentRelId, adminLevel);
   const json = await fetchOverpass(query);
   const fc = osmtogeojson(json);
   const areas: StoredArea[] = [];
@@ -190,15 +211,9 @@ async function fetchAndCacheAreas(
   for (const a of areas) if (!byId.has(a.id)) byId.set(a.id, a);
   const unique = [...byId.values()];
 
-  if (unique.length === 0) {
-    throw new OsmError(
-      `No administrative areas at level ${adminLevel} were found inside that boundary.`,
-      404,
-    );
-  }
+  if (unique.length === 0) throw new OsmError(emptyMessage, 404);
 
   // Cache each area's full geometry separately (keeps each KV value well under limits).
-  const cacheKey = cacheKeyFor(parentRelId, adminLevel);
   const index: CacheIndex = {
     adminLevel,
     attribution: OSM_ATTRIBUTION,
@@ -217,35 +232,68 @@ async function fetchAndCacheAreas(
   return unique;
 }
 
-export async function getAreas(
-  env: Env,
-  parentRelId: number,
-  adminLevel: number,
-): Promise<OsmAreasResponse> {
-  const cacheKey = cacheKeyFor(parentRelId, adminLevel);
-  let stored: StoredArea[];
+async function loadCached(env: Env, cacheKey: string): Promise<StoredArea[] | null> {
   const index = (await env.OSM_CACHE.get(cacheKey, "json")) as CacheIndex | null;
-  if (index) {
-    const loaded = await Promise.all(
-      index.ids.map((id) => env.OSM_CACHE.get(geomKey(cacheKey, id), "json")),
-    );
-    stored = loaded.filter(Boolean) as StoredArea[];
-    if (stored.length !== index.ids.length) {
-      // Some geometry entries expired — refetch to stay consistent.
-      stored = await fetchAndCacheAreas(env, parentRelId, adminLevel);
-    }
-  } else {
-    stored = await fetchAndCacheAreas(env, parentRelId, adminLevel);
-  }
+  if (!index) return null;
+  const loaded = await Promise.all(
+    index.ids.map((id) => env.OSM_CACHE.get(geomKey(cacheKey, id), "json")),
+  );
+  const stored = loaded.filter(Boolean) as StoredArea[];
+  // Some geometry entries expired — treat as a miss so we refetch consistently.
+  if (stored.length !== index.ids.length) return null;
+  return stored;
+}
 
+function buildResponse(
+  cacheKey: string,
+  adminLevel: number,
+  stored: StoredArea[],
+): OsmAreasResponse {
   const areas: OsmAreaFeature[] = stored.map((a) => ({
     id: a.id,
     name: a.name,
     centroid: a.centroid,
     geometry: simplifyGeometry(a.geometry), // simplified for the wizard map
   }));
-
   return { cacheKey, adminLevel, areas, attribution: OSM_ATTRIBUTION };
+}
+
+/** Child admin areas within a parent city/boundary. */
+export async function getAreas(
+  env: Env,
+  parentRelId: number,
+  adminLevel: number,
+): Promise<OsmAreasResponse> {
+  const cacheKey = cacheKeyFor(parentRelId, adminLevel);
+  const stored =
+    (await loadCached(env, cacheKey)) ??
+    (await fetchAndCache(
+      env,
+      cacheKey,
+      parentQuery(parentRelId, adminLevel),
+      adminLevel,
+      `No administrative areas at level ${adminLevel} were found inside that boundary.`,
+    ));
+  return buildResponse(cacheKey, adminLevel, stored);
+}
+
+/** Admin areas of a level within the current map viewport (may span cities). */
+export async function getAreasInBounds(
+  env: Env,
+  adminLevel: number,
+  bounds: BoundingBox,
+): Promise<OsmAreasResponse> {
+  const cacheKey = cacheKeyForBounds(adminLevel, bounds);
+  const stored =
+    (await loadCached(env, cacheKey)) ??
+    (await fetchAndCache(
+      env,
+      cacheKey,
+      boundsQuery(adminLevel, bounds),
+      adminLevel,
+      `No administrative areas at level ${adminLevel} were found in this map view.`,
+    ));
+  return buildResponse(cacheKey, adminLevel, stored);
 }
 
 /** Load FULL geometry for selected areas (used at lobby creation for adjacency). */

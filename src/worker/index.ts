@@ -1,5 +1,5 @@
 import { GameLobby, type InitAreaInput } from "./GameLobby";
-import { searchCity, getAreas, loadFullAreas, OsmError } from "./osm";
+import { searchCity, getAreas, getAreasInBounds, loadFullAreas, OsmError } from "./osm";
 import { computeAdjacency } from "./adjacency";
 import { simplifyGeometry } from "./geo";
 import { generateCode, generateToken } from "./decks";
@@ -55,6 +55,21 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
       return fail("adminLevel must be between 8 and 10.");
     }
     return json(await getAreas(env, parentId, adminLevel));
+  }
+
+  if (request.method === "GET" && path === "/api/osm/areas-in-view") {
+    const adminLevel = Number(url.searchParams.get("adminLevel"));
+    const s = Number(url.searchParams.get("s"));
+    const w = Number(url.searchParams.get("w"));
+    const n = Number(url.searchParams.get("n"));
+    const e = Number(url.searchParams.get("e"));
+    if (![adminLevel, s, w, n, e].every(Number.isFinite)) {
+      return fail("adminLevel and bounds (s,w,n,e) are required.");
+    }
+    if (adminLevel < 8 || adminLevel > 10) {
+      return fail("adminLevel must be between 8 and 10.");
+    }
+    return json(await getAreasInBounds(env, adminLevel, { s, w, n, e }));
   }
 
   if (request.method === "POST" && path === "/api/lobby") {

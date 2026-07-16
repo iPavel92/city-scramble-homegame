@@ -23,6 +23,14 @@ export const api = {
   areas: (parentId: number, adminLevel: number) =>
     req<OsmAreasResponse>(`/api/osm/areas?parentId=${parentId}&adminLevel=${adminLevel}`),
 
+  areasInView: (
+    adminLevel: number,
+    b: { s: number; w: number; n: number; e: number },
+  ) =>
+    req<OsmAreasResponse>(
+      `/api/osm/areas-in-view?adminLevel=${adminLevel}&s=${b.s}&w=${b.w}&n=${b.n}&e=${b.e}`,
+    ),
+
   createLobby: (body: CreateLobbyRequest) =>
     req<CreateLobbyResponse>(`/api/lobby`, {
       method: "POST",

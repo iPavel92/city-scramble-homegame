@@ -18,14 +18,24 @@ interface MapViewProps {
   className?: string;
   /** Bump this to refit the map to the whole game area (e.g. on claim/reveal). */
   refitNonce?: number;
+  /** Fires (on pan/zoom end) with the current viewport bounds. */
+  onBoundsChange?: (b: { s: number; w: number; n: number; e: number }) => void;
 }
 
-export function MapView({ features, fitSignature, className, refitNonce }: MapViewProps) {
+export function MapView({
+  features,
+  fitSignature,
+  className,
+  refitNonce,
+  onBoundsChange,
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const lastFitRef = useRef<string>("");
   const lastRefitRef = useRef<number>(0);
+  const onBoundsRef = useRef(onBoundsChange);
+  onBoundsRef.current = onBoundsChange;
 
   // Create the map once.
   useEffect(() => {
@@ -39,6 +49,17 @@ export function MapView({ features, fitSignature, className, refitNonce }: MapVi
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
+
+    const emitBounds = () => {
+      const b = map.getBounds();
+      onBoundsRef.current?.({
+        s: b.getSouth(),
+        w: b.getWest(),
+        n: b.getNorth(),
+        e: b.getEast(),
+      });
+    };
+    map.on("moveend", emitBounds);
 
     // Standard Leaflet.Locate control (top-left) for the device's position.
     new LocateControl({
