@@ -194,7 +194,9 @@ export function GameView({
             color,
             weight,
             fillColor,
-            fillOpacity: isHi ? Math.min(0.8, fillOpacity + 0.2) : fillOpacity,
+            // Highlighting only boosts an already-filled area; outline-only areas
+            // (e.g. one just removed from play) get a border highlight, no fill.
+            fillOpacity: isHi && fillOpacity > 0 ? Math.min(0.8, fillOpacity + 0.2) : fillOpacity,
           },
           tooltip: isProtected ? `🛡 ${area.name} (protected)` : area.name,
           onClick,

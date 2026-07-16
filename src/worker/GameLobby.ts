@@ -86,6 +86,13 @@ export class GameLobby extends DurableObject<Env> {
   private meta?: MetaState;
   private geom?: Map<string, StoredAreaLite>;
 
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // Auto-answer client "ping" keepalives with "pong" without waking the DO,
+    // so idle sockets (e.g. a claimer waiting for others) aren't dropped.
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
   private async ensureLoaded(): Promise<void> {
     if (this.meta) return;
     const meta = await this.ctx.storage.get<MetaState>("meta");
@@ -281,10 +288,10 @@ export class GameLobby extends DurableObject<Env> {
       return this.finishGame();
     }
 
-    // Trigger the protect → replace exchange after an open-deck claim, provided
-    // there are other teams to protect and a fresh area available to draw.
+    // Trigger the protect → replace exchange after ANY claim (open or private),
+    // provided there are other teams to protect and a fresh area to draw.
     const otherTeams = m.teams.filter((t) => t.id !== teamId);
-    if (wasOpen && otherTeams.length >= 1 && m.flop.length >= 1 && m.deck.length >= 1) {
+    if (otherTeams.length >= 1 && m.flop.length >= 1 && m.deck.length >= 1) {
       m.redraw = { claimerTeamId: teamId, protectedBy: {}, stage: "protecting" };
     }
 
