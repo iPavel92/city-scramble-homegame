@@ -7,6 +7,8 @@ import { Leaderboard } from "./Leaderboard";
 import { ChallengeSheet } from "./ChallengeSheet";
 
 const GRAY = "#9ca3af";
+// Open-deck in-play fill: GRAY darkened by 30% so live open areas stand out.
+const OPEN_FILL = "#6d727a";
 const BORDER = "#000000";
 const HIGHLIGHT = "#fbbf24";
 
@@ -35,6 +37,51 @@ export function GameView({
     init: false,
   });
   const seqRef = useRef(0);
+
+  // Optional device location — best-effort, never blocks gameplay.
+  const [userPos, setUserPos] = useState<[number, number] | null>(null);
+  const [recenter, setRecenter] = useState(0);
+  const watchRef = useRef<number | null>(null);
+  const wantCenterRef = useRef(false);
+  const geoAvailable = typeof navigator !== "undefined" && "geolocation" in navigator;
+
+  const locateMe = () => {
+    if (!geoAvailable) return;
+    wantCenterRef.current = true;
+    if (watchRef.current != null) {
+      if (userPos) {
+        setRecenter((n) => n + 1);
+        wantCenterRef.current = false;
+      }
+      return;
+    }
+    try {
+      watchRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserPos([pos.coords.longitude, pos.coords.latitude]);
+          if (wantCenterRef.current) {
+            wantCenterRef.current = false;
+            setRecenter((n) => n + 1);
+          }
+        },
+        () => {
+          /* permission denied / unavailable — ignore, stay non-blocking */
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      );
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (watchRef.current != null && geoAvailable) {
+        navigator.geolocation.clearWatch(watchRef.current);
+      }
+    },
+    [geoAvailable],
+  );
 
   const teamById = useMemo(() => new Map(state.teams.map((t) => [t.id, t])), [state.teams]);
   const you = teamById.get(state.youTeamId);
@@ -108,7 +155,7 @@ export function GameView({
           fillColor = teamById.get(p.claim.teamId)?.color ?? GRAY;
           fillOpacity = 0.6;
         } else if (p?.deck === "open") {
-          fillColor = GRAY;
+          fillColor = OPEN_FILL;
           fillOpacity = 0.4;
         } else if (p?.deck === "private") {
           fillColor = you?.color ?? "#38bdf8";
@@ -135,11 +182,30 @@ export function GameView({
 
   return (
     <div className="game-root">
-      <MapView features={features} fitSignature={state.code} className="map fullscreen" />
+      <MapView
+        features={features}
+        fitSignature={state.code}
+        className="map fullscreen"
+        userPosition={userPos}
+        recenter={recenter}
+      />
       <div className="hud-top">
-        {state.endsAt && <Timer endsAt={state.endsAt} offset={offset} />}
-        <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
+        <div className="hud-right">
+          {state.endsAt && <Timer endsAt={state.endsAt} offset={offset} />}
+          <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
+        </div>
       </div>
+
+      {geoAvailable && (
+        <button
+          className={`locate-btn ${userPos ? "active" : ""}`}
+          onClick={locateMe}
+          aria-label="Show my position"
+          title="Show my position"
+        >
+          📍
+        </button>
+      )}
 
       {selPlacement?.claimable && selArea && !current && (
         <ChallengeSheet

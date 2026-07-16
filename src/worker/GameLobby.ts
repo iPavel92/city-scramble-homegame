@@ -197,6 +197,11 @@ export class GameLobby extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     await this.ensureLoaded();
+    await this.finishGame();
+  }
+
+  /** End the game: compute winners, cancel any pending timer, broadcast. */
+  private async finishGame(): Promise<void> {
     const m = this.meta;
     if (!m || m.phase !== "active") return;
     m.phase = "ended";
@@ -206,6 +211,7 @@ export class GameLobby extends DurableObject<Env> {
       m.adjacency,
     );
     m.winnerTeamIds = determineWinners(scores);
+    await this.ctx.storage.deleteAlarm();
     await this.persistMeta();
     this.broadcastState();
   }
@@ -250,8 +256,14 @@ export class GameLobby extends DurableObject<Env> {
     if (openIdx >= 0 && openIdx < m.revealedCount && m.revealedCount < m.openQueue.length) {
       m.revealedCount++;
     }
-    await this.persistMeta();
-    this.broadcastState();
+
+    if (Object.keys(m.claims).length >= m.areaIds.length) {
+      // Every area has been claimed — end the game immediately.
+      await this.finishGame();
+    } else {
+      await this.persistMeta();
+      this.broadcastState();
+    }
   }
 
   private isClaimableBy(areaId: string, teamId: string): boolean {

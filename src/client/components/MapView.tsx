@@ -14,12 +14,24 @@ interface MapViewProps {
   /** When this string changes, the map refits its bounds to the features. */
   fitSignature: string;
   className?: string;
+  /** Current device location as [lng, lat], or null when unknown. */
+  userPosition?: [number, number] | null;
+  /** Bump this to pan/zoom the map to the current user position. */
+  recenter?: number;
 }
 
-export function MapView({ features, fitSignature, className }: MapViewProps) {
+export function MapView({
+  features,
+  fitSignature,
+  className,
+  userPosition,
+  recenter,
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const userMarkerRef = useRef<L.CircleMarker | null>(null);
+  const userPosRef = useRef<[number, number] | null>(null);
   const lastFitRef = useRef<string>("");
 
   // Create the map once.
@@ -35,12 +47,12 @@ export function MapView({ features, fitSignature, className }: MapViewProps) {
     }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-    // Leaflet often mounts inside a flex/absolute container before layout settles.
     setTimeout(() => map.invalidateSize(), 60);
     return () => {
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      userMarkerRef.current = null;
     };
   }, []);
 
@@ -74,6 +86,40 @@ export function MapView({ features, fitSignature, className }: MapViewProps) {
       lastFitRef.current = fitSignature;
     }
   }, [features, fitSignature]);
+
+  // Maintain the "you are here" marker on top of the polygons.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    userPosRef.current = userPosition ?? null;
+    if (!userPosition) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+    const latlng: L.LatLngExpression = [userPosition[1], userPosition[0]];
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(latlng);
+    } else {
+      userMarkerRef.current = L.circleMarker(latlng, {
+        radius: 8,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: "#2563eb",
+        fillOpacity: 1,
+      }).addTo(map);
+    }
+  }, [userPosition]);
+
+  // Recenter on demand (e.g. when the user taps the locate button).
+  useEffect(() => {
+    const map = mapRef.current;
+    const pos = userPosRef.current;
+    if (!map || !pos || !recenter) return;
+    map.setView([pos[1], pos[0]], Math.max(map.getZoom(), 14));
+  }, [recenter]);
 
   return <div ref={containerRef} className={className ?? "map grow"} />;
 }
