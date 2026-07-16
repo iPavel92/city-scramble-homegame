@@ -343,6 +343,24 @@ select:focus {
   align-items: flex-end;
   gap: 8px;
 }
+.redraw-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(20px + var(--safe-b));
+  z-index: 1050;
+  max-width: 92vw;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
 .timer {
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid var(--border);

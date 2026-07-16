@@ -26,8 +26,10 @@ export function shuffle<T>(arr: T[]): T[] {
 
 export interface DeckLayout {
   privateDecks: Record<string, string[]>;
-  openQueue: string[];
-  revealedCount: number;
+  /** Open-deck areas currently in play (unclaimed). */
+  flop: string[];
+  /** Remaining open-deck areas, drawn from the front, returned to the back. */
+  deck: string[];
   challenges: Record<string, string>;
 }
 
@@ -55,8 +57,8 @@ export function partition(
   for (const teamId of teamIds) {
     privateDecks[teamId] = pool.splice(0, Y);
   }
-  const openQueue = pool; // remaining
-  const revealedCount = Math.min(X, openQueue.length);
+  const flop = pool.splice(0, X); // in play now
+  const deck = pool; // remaining, drawn later
 
   // Assign a challenge to every area (cycling a shuffled pool if needed).
   const challenges: Record<string, string> = {};
@@ -67,7 +69,8 @@ export function partition(
     ci++;
   };
   for (const teamId of teamIds) for (const id of privateDecks[teamId]) assign(id);
-  for (const id of openQueue) assign(id);
+  for (const id of flop) assign(id);
+  for (const id of deck) assign(id);
 
-  return { privateDecks, openQueue, revealedCount, challenges };
+  return { privateDecks, flop, deck, challenges };
 }

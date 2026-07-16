@@ -12,6 +12,7 @@ import type {
   GamePhase,
   GameStateView,
   LngLat,
+  RedrawView,
   ServerMessage,
   Team,
 } from "../shared/types";
@@ -48,6 +49,14 @@ export type JoinResult =
   | { ok: true; teamId: string; token: string; color: string }
   | { ok: false; error: string; status: number };
 
+/** In-progress protect → replace exchange triggered by an open-deck claim. */
+interface RedrawState {
+  claimerTeamId: string;
+  /** teamId → protected areaId (only teams other than the claimer). */
+  protectedBy: Record<string, string>;
+  stage: "protecting" | "replacing";
+}
+
 interface MetaState {
   code: string;
   phase: GamePhase;
@@ -57,10 +66,13 @@ interface MetaState {
   adjacency: Adjacency;
   hostTeamId: string;
   privateDecks: Record<string, string[]>;
-  openQueue: string[];
-  revealedCount: number;
+  /** Open-deck areas currently in play (unclaimed). */
+  flop: string[];
+  /** Remaining open-deck areas; drawn from the front, returned to the back. */
+  deck: string[];
   challenges: Record<string, string>;
   claims: Record<string, Claim>;
+  redraw: RedrawState | null;
   startedAt?: number;
   endsAt?: number;
   winnerTeamIds?: string[];
@@ -116,10 +128,11 @@ export class GameLobby extends DurableObject<Env> {
       adjacency: payload.adjacency,
       hostTeamId: payload.hostTeam.id,
       privateDecks: {},
-      openQueue: [],
-      revealedCount: 0,
+      flop: [],
+      deck: [],
       challenges: {},
       claims: {},
+      redraw: null,
     };
     batch["meta"] = this.meta;
     await this.ctx.storage.put(batch); // single batched write (≤128 keys)
@@ -185,6 +198,8 @@ export class GameLobby extends DurableObject<Env> {
 
     if (msg.t === "start") return this.handleStart(teamId, ws);
     if (msg.t === "claim") return this.handleClaim(teamId, msg.areaId, ws);
+    if (msg.t === "protect") return this.handleProtect(teamId, msg.areaId, ws);
+    if (msg.t === "replace") return this.handleReplace(teamId, msg.areaId, ws);
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
@@ -205,6 +220,7 @@ export class GameLobby extends DurableObject<Env> {
     const m = this.meta;
     if (!m || m.phase !== "active") return;
     m.phase = "ended";
+    m.redraw = null;
     const scores = computeScores(
       m.teams.map((t) => t.id),
       Object.values(m.claims),
@@ -229,8 +245,8 @@ export class GameLobby extends DurableObject<Env> {
         m.params,
       );
       m.privateDecks = layout.privateDecks;
-      m.openQueue = layout.openQueue;
-      m.revealedCount = layout.revealedCount;
+      m.flop = layout.flop;
+      m.deck = layout.deck;
       m.challenges = layout.challenges;
       m.phase = "active";
       m.startedAt = Date.now();
@@ -246,31 +262,89 @@ export class GameLobby extends DurableObject<Env> {
   private async handleClaim(teamId: string, areaId: string, ws: WebSocket): Promise<void> {
     const m = this.meta!;
     if (m.phase !== "active") return this.sendErr(ws, "The game is not active.");
+    if (m.redraw) return this.sendErr(ws, "Hold on — a protect/replace exchange is in progress.");
     if (m.claims[areaId]) return this.sendErr(ws, "That area is already claimed.");
     if (!this.isClaimableBy(areaId, teamId))
       return this.sendErr(ws, "You can't claim that area right now.");
 
+    const wasOpen = m.flop.includes(areaId);
     m.claims[areaId] = { areaId, teamId, at: Date.now() };
-    // Reveal the next open-deck area if a revealed open area was just taken.
-    const openIdx = m.openQueue.indexOf(areaId);
-    if (openIdx >= 0 && openIdx < m.revealedCount && m.revealedCount < m.openQueue.length) {
-      m.revealedCount++;
+
+    if (wasOpen) {
+      m.flop = m.flop.filter((a) => a !== areaId);
+      // Draw a new area into the flop to keep it topped up.
+      if (m.deck.length > 0) m.flop.push(m.deck.shift()!);
     }
 
     if (Object.keys(m.claims).length >= m.areaIds.length) {
       // Every area has been claimed — end the game immediately.
-      await this.finishGame();
-    } else {
-      await this.persistMeta();
-      this.broadcastState();
+      return this.finishGame();
     }
+
+    // Trigger the protect → replace exchange after an open-deck claim, provided
+    // there are other teams to protect and a fresh area available to draw.
+    const otherTeams = m.teams.filter((t) => t.id !== teamId);
+    if (wasOpen && otherTeams.length >= 1 && m.flop.length >= 1 && m.deck.length >= 1) {
+      m.redraw = { claimerTeamId: teamId, protectedBy: {}, stage: "protecting" };
+    }
+
+    await this.persistMeta();
+    this.broadcastState();
+  }
+
+  private async handleProtect(teamId: string, areaId: string, ws: WebSocket): Promise<void> {
+    const m = this.meta!;
+    const r = m.redraw;
+    if (!r || r.stage !== "protecting") return this.sendErr(ws, "There's nothing to protect now.");
+    if (teamId === r.claimerTeamId)
+      return this.sendErr(ws, "The claiming team doesn't protect.");
+    if (r.protectedBy[teamId]) return this.sendErr(ws, "You already protected an area.");
+    if (!m.flop.includes(areaId))
+      return this.sendErr(ws, "Protect an area that is currently in play.");
+
+    r.protectedBy[teamId] = areaId;
+
+    // Wait until every other team (roster) has protected.
+    const otherTeams = m.teams.filter((t) => t.id !== r.claimerTeamId);
+    const allProtected = otherTeams.every((t) => r.protectedBy[t.id] !== undefined);
+    if (allProtected) {
+      const protectedSet = new Set(Object.values(r.protectedBy));
+      const unprotected = m.flop.filter((a) => !protectedSet.has(a));
+      if (unprotected.length === 0) {
+        m.redraw = null; // everything protected — no replacement possible
+      } else {
+        r.stage = "replacing";
+      }
+    }
+
+    await this.persistMeta();
+    this.broadcastState();
+  }
+
+  private async handleReplace(teamId: string, areaId: string, ws: WebSocket): Promise<void> {
+    const m = this.meta!;
+    const r = m.redraw;
+    if (!r || r.stage !== "replacing") return this.sendErr(ws, "There's nothing to replace now.");
+    if (teamId !== r.claimerTeamId)
+      return this.sendErr(ws, "Only the claiming team replaces an area.");
+    const protectedSet = new Set(Object.values(r.protectedBy));
+    if (!m.flop.includes(areaId) || protectedSet.has(areaId))
+      return this.sendErr(ws, "Pick an unprotected area that is in play.");
+
+    // Remove from the flop, draw a fresh area, and return this one to the deck.
+    m.flop = m.flop.filter((a) => a !== areaId);
+    if (m.deck.length > 0) m.flop.push(m.deck.shift()!);
+    m.deck.push(areaId);
+    m.redraw = null;
+
+    await this.persistMeta();
+    this.broadcastState();
   }
 
   private isClaimableBy(areaId: string, teamId: string): boolean {
     const m = this.meta!;
     if (m.claims[areaId]) return false;
-    const openIdx = m.openQueue.indexOf(areaId);
-    if (openIdx >= 0 && openIdx < m.revealedCount) return true;
+    if (m.flop.includes(areaId)) return true;
     return (m.privateDecks[teamId] ?? []).includes(areaId);
   }
 
@@ -284,17 +358,50 @@ export class GameLobby extends DurableObject<Env> {
     return owner;
   }
 
+  private redrawViewFor(teamId: string): RedrawView | null {
+    const m = this.meta!;
+    const r = m.redraw;
+    if (!r) return null;
+    const isClaimer = teamId === r.claimerTeamId;
+    const protectedVals = Object.values(r.protectedBy);
+    const protectedSet = new Set(protectedVals);
+    const otherTeams = m.teams.filter((t) => t.id !== r.claimerTeamId);
+    const pendingCount = otherTeams.filter((t) => r.protectedBy[t.id] === undefined).length;
+
+    let youRole: RedrawView["youRole"] = "waiting";
+    let actionableAreaIds: string[] = [];
+    if (isClaimer) {
+      if (r.stage === "replacing") {
+        youRole = "claimer";
+        actionableAreaIds = m.flop.filter((a) => !protectedSet.has(a));
+      }
+    } else if (r.stage === "protecting" && r.protectedBy[teamId] === undefined) {
+      youRole = "protector";
+      actionableAreaIds = [...m.flop];
+    }
+
+    return {
+      stage: r.stage,
+      claimerTeamId: r.claimerTeamId,
+      youRole,
+      actionableAreaIds,
+      // Reveal protected markings only once we reach the replacing stage.
+      protectedAreaIds: r.stage === "replacing" ? [...new Set(protectedVals)] : [],
+      pendingCount,
+    };
+  }
+
   private viewFor(teamId: string): GameStateView {
     const m = this.meta!;
     const owner = this.privateOwners();
-    const revealedOpen = new Set(m.openQueue.slice(0, m.revealedCount));
+    const flopSet = new Set(m.flop);
     const areas: Area[] = [];
     const placements: AreaPlacement[] = [];
+    const canClaim = m.phase === "active" && !m.redraw;
 
     for (const id of m.areaIds) {
       // Every player receives the geometry for ALL areas so the full game board
-      // is always visible as outlines. Placement (deck/owner/challenge/claim) is
-      // still visibility-filtered below.
+      // is always visible as outlines. Placement is visibility-filtered below.
       const g = this.geom?.get(id);
       if (g) areas.push({ id, name: g.name, centroid: g.centroid, geometry: g.geometry });
 
@@ -307,13 +414,13 @@ export class GameLobby extends DurableObject<Env> {
 
       if (claim) {
         visible = true; // claimed areas are visible to everyone
-      } else if (deck === "open" && revealedOpen.has(id)) {
+      } else if (deck === "open" && flopSet.has(id)) {
         visible = true;
-        claimable = m.phase === "active";
+        claimable = canClaim;
         challenge = m.challenges[id];
       } else if (deck === "private" && ownerTeamId === teamId) {
         visible = true;
-        claimable = m.phase === "active";
+        claimable = canClaim;
         challenge = m.challenges[id];
       }
       if (!visible) continue;
@@ -347,8 +454,10 @@ export class GameLobby extends DurableObject<Env> {
       youTeamId: teamId,
       areas,
       placements,
+      flopAreaIds: [...m.flop],
       scores,
-      openDeckRemaining: Math.max(0, m.openQueue.length - m.revealedCount),
+      openDeckRemaining: m.deck.length,
+      redraw: this.redrawViewFor(teamId),
       startedAt: m.startedAt,
       endsAt: m.endsAt,
       serverNow: Date.now(),

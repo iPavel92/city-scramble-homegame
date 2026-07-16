@@ -60,6 +60,20 @@ export interface AreaPlacement {
   claim?: Claim;
 }
 
+/** Per-team view of an in-progress redraw (protect → replace) exchange. */
+export interface RedrawView {
+  stage: "protecting" | "replacing";
+  claimerTeamId: string;
+  /** What the receiving team should do right now. */
+  youRole: "claimer" | "protector" | "waiting";
+  /** Areas the receiving team may act on now (protect, or replace if claimer). */
+  actionableAreaIds: string[];
+  /** Areas already protected — shown as markings during the replacing stage. */
+  protectedAreaIds: string[];
+  /** How many teams still need to protect (during the protecting stage). */
+  pendingCount: number;
+}
+
 export interface ScoreEntry {
   teamId: string;
   /** Size of the team's largest connected cluster of adjacent claimed areas. */
@@ -78,9 +92,13 @@ export interface GameStateView {
   /** Geometry for every area currently visible to this team. */
   areas: Area[];
   placements: AreaPlacement[];
+  /** Open-deck areas currently in play (unclaimed), used for reveal/removal cues. */
+  flopAreaIds: string[];
   scores: ScoreEntry[];
-  /** Number of open-deck areas not yet revealed (public info). */
+  /** Number of open-deck areas not yet drawn into play (public info). */
   openDeckRemaining: number;
+  /** In-progress protect/replace exchange, or null. */
+  redraw: RedrawView | null;
   startedAt?: number;
   endsAt?: number;
   /** Server clock at send time, for countdown offset correction. */
@@ -147,7 +165,9 @@ export interface JoinLobbyResponse {
 export type ClientMessage =
   | { t: "hello"; token: string }
   | { t: "start" }
-  | { t: "claim"; areaId: string };
+  | { t: "claim"; areaId: string }
+  | { t: "protect"; areaId: string }
+  | { t: "replace"; areaId: string };
 
 export type ServerMessage =
   | { t: "state"; state: GameStateView }

@@ -54,6 +54,8 @@ export function Play() {
           state={state}
           offset={offset}
           onClaim={(areaId) => send({ t: "claim", areaId })}
+          onProtect={(areaId) => send({ t: "protect", areaId })}
+          onReplace={(areaId) => send({ t: "replace", areaId })}
         />
       )}
       {error && <div className="error-toast">{error}</div>}
