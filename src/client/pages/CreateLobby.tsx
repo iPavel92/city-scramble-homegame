@@ -10,12 +10,15 @@ export function CreateLobby() {
   const [sel, setSel] = useState<AreaSelection | null>(null);
 
   // Step 2 params
-  const [hh, setHh] = useState("01");
-  const [mm, setMm] = useState("30");
+  const [hh, setHh] = useState("06");
+  const [mm, setMm] = useState("00");
   const [privateY, setPrivateY] = useState("2");
   const [openX, setOpenX] = useState("3");
-  const [unlockHh, setUnlockHh] = useState("00");
+  const [unlockHh, setUnlockHh] = useState("01");
   const [unlockMm, setUnlockMm] = useState("00");
+  // Whether the host has manually edited the deck sizes (else we default them
+  // to ~10% of the selected areas when entering the settings step).
+  const [deckSizesTouched, setDeckSizesTouched] = useState(false);
 
   // Step 3
   const [teamName, setTeamName] = useState("");
@@ -82,7 +85,18 @@ export function CreateLobby() {
             <button className="btn ghost" onClick={() => navigate("/")}>
               Cancel
             </button>
-            <button className="btn" disabled={!step1Ok} onClick={() => setStep(2)}>
+            <button
+              className="btn"
+              disabled={!step1Ok}
+              onClick={() => {
+                if (!deckSizesTouched) {
+                  const d = String(Math.max(1, Math.round(selectedCount * 0.1)));
+                  setPrivateY(d);
+                  setOpenX(d);
+                }
+                setStep(2);
+              }}
+            >
               Next
             </button>
           </div>
@@ -114,25 +128,31 @@ export function CreateLobby() {
             </div>
           </div>
 
-          <label>Private deck size per team (Y)</label>
+          <label>Private deck size</label>
           <input
             inputMode="numeric"
             value={privateY}
-            onChange={(e) => setPrivateY(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            onChange={(e) => {
+              setPrivateY(e.target.value.replace(/\D/g, "").slice(0, 3));
+              setDeckSizesTouched(true);
+            }}
           />
           <div className="field-hint">Exclusive areas each team can claim only for itself.</div>
 
-          <label>Open deck areas in play (X)</label>
+          <label>Open deck flop size</label>
           <input
             inputMode="numeric"
             value={openX}
-            onChange={(e) => setOpenX(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            onChange={(e) => {
+              setOpenX(e.target.value.replace(/\D/g, "").slice(0, 3));
+              setDeckSizesTouched(true);
+            }}
           />
           <div className="field-hint">
             Shared areas visible at once. A new one appears whenever one is claimed.
           </div>
 
-          <label>Time to next private area</label>
+          <label>Private deck unveil period</label>
           <div className="btn-row">
             <div className="grow">
               <input
@@ -162,10 +182,6 @@ export function CreateLobby() {
             <div className="row-between">
               <span>Areas selected</span>
               <strong>{selectedCount}</strong>
-            </div>
-            <div className="hint" style={{ textAlign: "left", marginTop: 6 }}>
-              You need at least Y × (number of teams) + 1 areas. With more teams you may need
-              more — you can add areas by going back.
             </div>
           </div>
 

@@ -9,11 +9,10 @@ import { ChallengeSheet } from "./ChallengeSheet";
 const GRAY = "#9ca3af"; // fallback fill for a claimed area with an unknown team
 const OPEN_FILL = "#4c5055"; // open-deck in-play fill (darkened toward black)
 const BORDER = "#000000"; // border for actual in-game areas
-const OUTLINE_BORDER = "#666666"; // lighter/gray border for non-in-game areas
+const OUTLINE_BORDER = "#444444"; // gray border for non-in-game areas
 const HIGHLIGHT = "#fbbf24"; // announcement highlight
 const PROTECTED_FILL = "#1e2022"; // protected-area fill during a redraw (darkened)
-const OPTION_BORDER = "#16a34a"; // saturated green border for protect/replace options
-const CHOSEN_BORDER = "#14532d"; // darker green border for the chosen option
+const SELECTED_BORDER = "#f97316"; // bright orange border for the chosen option
 
 type AnnouncementKind = "claim" | "reveal" | "removed";
 
@@ -202,13 +201,11 @@ export function GameView({
           color = HIGHLIGHT;
           weight = 4;
         } else if (redraw && isChosen) {
-          color = CHOSEN_BORDER; // the option the player has selected
+          color = SELECTED_BORDER; // the option the player has selected
           weight = 4;
-        } else if (redraw && isActionable) {
-          color = OPTION_BORDER; // a selectable protect/replace option
-          weight = 3;
         } else {
-          // In-game areas keep a black border; everything else is lighter/gray.
+          // In-game areas (incl. protect/replace options) keep a black border;
+          // everything else is gray.
           color = p ? BORDER : OUTLINE_BORDER;
           weight = 1.5;
         }
@@ -293,7 +290,7 @@ export function GameView({
             </h3>
             <div className="challenge">
               {pending.type === "protect"
-                ? `Protect ${pendingArea.name}? Other teams won't be able to remove it.`
+                ? `Protect ${pendingArea.name}? The scored team won't be able to remove it.`
                 : `Send ${pendingArea.name} back to the deck and draw a new area?`}
             </div>
             <div className="btn-row">
@@ -342,8 +339,9 @@ function redrawBanner(
 ): string | null {
   if (!redraw) return null;
   const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? "the leader";
-  if (redraw.youRole === "protector") return "Tap an area on the map to protect it.";
-  if (redraw.youRole === "claimer") return "Tap an unprotected area to replace it.";
+  if (redraw.youRole === "protector")
+    return "The scored team can remove one grey open-deck area from the map. Tap one to protect it.";
+  if (redraw.youRole === "claimer") return "Tap an unprotected grey area to replace it.";
   // waiting
   if (redraw.stage === "protecting") {
     return `Waiting for teams to protect… (${redraw.pendingCount} left)`;

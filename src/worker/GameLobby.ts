@@ -283,6 +283,8 @@ export class GameLobby extends DurableObject<Env> {
     const m = this.meta!;
     if (teamId !== m.hostTeamId) return this.sendErr(ws, "Only the host can start the game.");
     if (m.phase !== "lobby") return this.sendErr(ws, "The game has already started.");
+    if (m.teams.length < 2)
+      return this.sendErr(ws, "You need at least one other team to start.");
     try {
       const layout = partition(
         m.areaIds,

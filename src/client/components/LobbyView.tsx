@@ -28,6 +28,14 @@ export function LobbyView({
 
   const hours = Math.floor(state.params.timeLimitMs / 3_600_000);
   const mins = Math.floor((state.params.timeLimitMs % 3_600_000) / 60_000);
+  const unveilMs = state.params.privateUnlockPeriodMs ?? 0;
+  const unveilLabel =
+    unveilMs > 0
+      ? `${Math.floor(unveilMs / 3_600_000)}h ${String(
+          Math.floor((unveilMs % 3_600_000) / 60_000),
+        ).padStart(2, "0")}m`
+      : "All at start";
+  const canStart = state.teams.length >= 2;
 
   const mapFeatures: MapFeature[] = useMemo(
     () =>
@@ -58,12 +66,16 @@ export function LobbyView({
           </strong>
         </div>
         <div className="row-between">
-          <span>Private deck (Y)</span>
+          <span>Private deck size</span>
           <strong>{state.params.privateDeckSize}</strong>
         </div>
         <div className="row-between">
-          <span>Open deck in play (X)</span>
+          <span>Open deck flop size</span>
           <strong>{state.params.openInPlay}</strong>
+        </div>
+        <div className="row-between">
+          <span>Private deck unveil period</span>
+          <strong>{unveilLabel}</strong>
         </div>
       </div>
 
@@ -91,9 +103,21 @@ export function LobbyView({
       </div>
 
       {isHost ? (
-        <button className="btn" style={{ marginTop: 16 }} onClick={onStart}>
-          Start game
-        </button>
+        <>
+          <button
+            className="btn"
+            style={{ marginTop: 16 }}
+            disabled={!canStart}
+            onClick={onStart}
+          >
+            Start game
+          </button>
+          {!canStart && (
+            <p className="hint" style={{ marginTop: 8 }}>
+              You need at least one other team to start.
+            </p>
+          )}
+        </>
       ) : (
         <p className="hint" style={{ marginTop: 16 }}>
           Waiting for the host to start the game…
