@@ -83,6 +83,11 @@ async function createLobby(request: Request, env: Env): Promise<Response> {
   if (!params || params.timeLimitMs <= 0) return fail("Set a valid time limit.");
   if (params.openInPlay < 1) return fail("Open deck size (X) must be at least 1.");
   if (params.privateDeckSize < 0) return fail("Private deck size (Y) can't be negative.");
+  const unlock = params.privateUnlockPeriodMs ?? 0;
+  if (unlock < 0) return fail("Private-area unlock period can't be negative.");
+  if (unlock > 0 && unlock >= params.timeLimitMs) {
+    return fail("The private-area unlock period must be less than the game time limit.");
+  }
   if (params.openInPlay > selectedAreaIds.length) {
     return fail("Open deck size (X) can't exceed the number of selected areas.");
   }

@@ -66,6 +66,8 @@ interface MetaState {
   adjacency: Adjacency;
   hostTeamId: string;
   privateDecks: Record<string, string[]>;
+  /** How many private areas (per team) are currently unlocked/on the map. */
+  privateUnlockedCount: number;
   /** Open-deck areas currently in play (unclaimed). */
   flop: string[];
   /** Remaining open-deck areas; drawn from the front, returned to the back. */
@@ -135,6 +137,7 @@ export class GameLobby extends DurableObject<Env> {
       adjacency: payload.adjacency,
       hostTeamId: payload.hostTeam.id,
       privateDecks: {},
+      privateUnlockedCount: 0,
       flop: [],
       deck: [],
       challenges: {},
@@ -217,9 +220,44 @@ export class GameLobby extends DurableObject<Env> {
     }
   }
 
+  /** Soonest of: the next private-area unlock (if pending) and the game end. */
+  private nextAlarmTarget(m: MetaState): number {
+    const period = m.params.privateUnlockPeriodMs ?? 0;
+    const Y = m.params.privateDeckSize;
+    let target = m.endsAt ?? 0;
+    if (period > 0 && m.privateUnlockedCount < Y && m.startedAt !== undefined) {
+      const nextUnlockAt = m.startedAt + m.privateUnlockedCount * period;
+      if (nextUnlockAt < target) target = nextUnlockAt;
+    }
+    return target;
+  }
+
   async alarm(): Promise<void> {
     await this.ensureLoaded();
-    await this.finishGame();
+    const m = this.meta;
+    if (!m || m.phase !== "active") return;
+
+    const now = Date.now();
+    const period = m.params.privateUnlockPeriodMs ?? 0;
+    const Y = m.params.privateDeckSize;
+
+    // Unlock any private areas whose time has come (robust to delayed alarms).
+    let unlockedNew = false;
+    if (period > 0 && m.privateUnlockedCount < Y && m.startedAt !== undefined) {
+      const should = Math.min(Y, 1 + Math.floor((now - m.startedAt) / period));
+      if (should > m.privateUnlockedCount) {
+        m.privateUnlockedCount = should;
+        unlockedNew = true;
+      }
+    }
+
+    if (m.endsAt !== undefined && now >= m.endsAt) {
+      return this.finishGame();
+    }
+
+    await this.ctx.storage.setAlarm(this.nextAlarmTarget(m));
+    await this.persistMeta();
+    if (unlockedNew) this.broadcastState();
   }
 
   /** End the game: compute winners, cancel any pending timer, broadcast. */
@@ -258,7 +296,12 @@ export class GameLobby extends DurableObject<Env> {
       m.phase = "active";
       m.startedAt = Date.now();
       m.endsAt = m.startedAt + m.params.timeLimitMs;
-      await this.ctx.storage.setAlarm(m.endsAt);
+      // Staggered private unlock: only the first private area starts on the map
+      // when a period is set; otherwise all are unlocked immediately.
+      const Y = m.params.privateDeckSize;
+      m.privateUnlockedCount =
+        (m.params.privateUnlockPeriodMs ?? 0) > 0 ? Math.min(1, Y) : Y;
+      await this.ctx.storage.setAlarm(this.nextAlarmTarget(m));
       await this.persistMeta();
       this.broadcastState();
     } catch (e) {
@@ -407,13 +450,20 @@ export class GameLobby extends DurableObject<Env> {
     const canClaim = m.phase === "active" && !m.redraw;
 
     for (const id of m.areaIds) {
-      // Every player receives the geometry for ALL areas so the full game board
-      // is always visible as outlines. Placement is visibility-filtered below.
+      const claim = m.claims[id];
+      const ownerTeamId = owner[id];
+
+      // Locked (not-yet-unlocked) private areas are hidden from everyone.
+      if (ownerTeamId && !claim) {
+        const idx = m.privateDecks[ownerTeamId]?.indexOf(id) ?? -1;
+        if (idx < 0 || idx >= m.privateUnlockedCount) continue;
+      }
+
+      // Every player receives the geometry for all on-board areas so the game
+      // area is visible as outlines. Placement is visibility-filtered below.
       const g = this.geom?.get(id);
       if (g) areas.push({ id, name: g.name, centroid: g.centroid, geometry: g.geometry });
 
-      const claim = m.claims[id];
-      const ownerTeamId = owner[id];
       const deck: DeckKind = ownerTeamId ? "private" : "open";
       let visible = false;
       let claimable = false;
@@ -448,6 +498,20 @@ export class GameLobby extends DurableObject<Env> {
       m.adjacency,
     );
 
+    const period = m.params.privateUnlockPeriodMs ?? 0;
+    const Y = m.params.privateDeckSize;
+    let nextPrivateUnlockAt: number | undefined;
+    if (
+      m.phase === "active" &&
+      period > 0 &&
+      m.privateUnlockedCount < Y &&
+      m.startedAt !== undefined &&
+      m.endsAt !== undefined
+    ) {
+      const t = m.startedAt + m.privateUnlockedCount * period;
+      if (t < m.endsAt) nextPrivateUnlockAt = t;
+    }
+
     return {
       code: m.code,
       phase: m.phase,
@@ -467,6 +531,7 @@ export class GameLobby extends DurableObject<Env> {
       redraw: this.redrawViewFor(teamId),
       startedAt: m.startedAt,
       endsAt: m.endsAt,
+      nextPrivateUnlockAt,
       serverNow: Date.now(),
       winnerTeamIds: m.winnerTeamIds,
     };

@@ -38,6 +38,8 @@ export interface GameParams {
   privateDeckSize: number;
   /** X — number of open-deck areas revealed (in play) at any time. */
   openInPlay: number;
+  /** Interval between unlocking each further private area (ms). 0 = all at start. */
+  privateUnlockPeriodMs: number;
 }
 
 export interface Claim {
@@ -101,6 +103,8 @@ export interface GameStateView {
   redraw: RedrawView | null;
   startedAt?: number;
   endsAt?: number;
+  /** Timestamp of the next private-area unlock, if one is pending before game end. */
+  nextPrivateUnlockAt?: number;
   /** Server clock at send time, for countdown offset correction. */
   serverNow: number;
   /** Winning team id(s), present when phase === "ended". */

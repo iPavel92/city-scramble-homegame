@@ -14,6 +14,8 @@ export function CreateLobby() {
   const [mm, setMm] = useState("30");
   const [privateY, setPrivateY] = useState("2");
   const [openX, setOpenX] = useState("3");
+  const [unlockHh, setUnlockHh] = useState("00");
+  const [unlockMm, setUnlockMm] = useState("00");
 
   // Step 3
   const [teamName, setTeamName] = useState("");
@@ -27,12 +29,16 @@ export function CreateLobby() {
   const step1Ok = selectedCount >= 1;
   const y = parseInt(privateY || "0", 10);
   const x = parseInt(openX || "0", 10);
+  const privateUnlockPeriodMs =
+    (parseInt(unlockHh || "0", 10) * 60 + parseInt(unlockMm || "0", 10)) * 60_000;
+  const unlockOk = privateUnlockPeriodMs === 0 || privateUnlockPeriodMs < timeLimitMs;
   const step2Ok =
     timeLimitMs > 0 &&
     x >= 1 &&
     y >= 0 &&
     x <= selectedCount &&
-    y * 1 + x <= selectedCount; // host alone; more teams checked at start
+    y * 1 + x <= selectedCount && // host alone; more teams checked at start
+    unlockOk;
 
   const create = async () => {
     if (!sel) return;
@@ -42,7 +48,7 @@ export function CreateLobby() {
       const res = await api.createLobby({
         cacheKey: sel.cacheKey,
         selectedAreaIds: sel.selectedIds,
-        params: { timeLimitMs, privateDeckSize: y, openInPlay: x },
+        params: { timeLimitMs, privateDeckSize: y, openInPlay: x, privateUnlockPeriodMs },
         teamName: teamName.trim(),
       });
       saveSession({
@@ -124,6 +130,32 @@ export function CreateLobby() {
           />
           <div className="field-hint">
             Shared areas visible at once. A new one appears whenever one is claimed.
+          </div>
+
+          <label>Time to next private area</label>
+          <div className="btn-row">
+            <div className="grow">
+              <input
+                inputMode="numeric"
+                value={unlockHh}
+                onChange={(e) => setUnlockHh(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                aria-label="unlock hours"
+              />
+              <div className="field-hint">hours</div>
+            </div>
+            <div className="grow">
+              <input
+                inputMode="numeric"
+                value={unlockMm}
+                onChange={(e) => setUnlockMm(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                aria-label="unlock minutes"
+              />
+              <div className="field-hint">minutes</div>
+            </div>
+          </div>
+          <div className="field-hint">
+            Private areas unlock one at a time on this interval. 0 = all from the start. Must
+            be less than the game time limit.
           </div>
 
           <div className="card" style={{ marginTop: 8 }}>

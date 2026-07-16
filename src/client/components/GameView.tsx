@@ -51,9 +51,15 @@ export function GameView({
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [queue, setQueue] = useState<Announcement[]>([]);
-  const prevRef = useRef<{ claims: Map<string, string>; flop: Set<string>; init: boolean }>({
+  const prevRef = useRef<{
+    claims: Map<string, string>;
+    flop: Set<string>;
+    mine: Set<string>;
+    init: boolean;
+  }>({
     claims: new Map(),
     flop: new Set(),
+    mine: new Set(),
     init: false,
   });
   const seqRef = useRef(0);
@@ -75,13 +81,17 @@ export function GameView({
   // Derive claim / reveal / removed events by diffing consecutive states.
   useEffect(() => {
     const currClaims = new Map<string, string>();
-    for (const p of state.placements) if (p.claim) currClaims.set(p.areaId, p.claim.teamId);
+    const currMine = new Set<string>();
+    for (const p of state.placements) {
+      if (p.claim) currClaims.set(p.areaId, p.claim.teamId);
+      else if (p.deck === "private") currMine.add(p.areaId); // my unlocked private areas
+    }
     const currFlop = new Set(state.flopAreaIds);
     const name = (id: string) => areaNameById.get(id) ?? "an area";
 
     const prev = prevRef.current;
     if (!prev.init) {
-      prevRef.current = { claims: currClaims, flop: currFlop, init: true };
+      prevRef.current = { claims: currClaims, flop: currFlop, mine: currMine, init: true };
       return;
     }
 
@@ -125,8 +135,20 @@ export function GameView({
         });
       }
     }
+    // A private area of mine just unlocked onto the map.
+    for (const areaId of currMine) {
+      if (!prev.mine.has(areaId)) {
+        boardChanged = true;
+        next.push({
+          id: `p${seqRef.current++}`,
+          areaId,
+          kind: "reveal",
+          message: `New area in play: ${name(areaId)}`,
+        });
+      }
+    }
 
-    prevRef.current = { claims: currClaims, flop: currFlop, init: true };
+    prevRef.current = { claims: currClaims, flop: currFlop, mine: currMine, init: true };
     if (next.length) setQueue((q) => [...q, ...next]);
     if (boardChanged) setRefitNonce((n) => n + 1);
   }, [state, teamById, areaNameById]);
@@ -222,6 +244,14 @@ export function GameView({
       <div className="hud-top">
         <div className="hud-right">
           {state.endsAt && <Timer endsAt={state.endsAt} offset={offset} />}
+          {state.nextPrivateUnlockAt && (
+            <Timer
+              endsAt={state.nextPrivateUnlockAt}
+              offset={offset}
+              label="Next area"
+              small
+            />
+          )}
           <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
         </div>
       </div>
