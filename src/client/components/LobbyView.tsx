@@ -60,23 +60,25 @@ export function LobbyView({
 
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row-between">
-          <span>Time limit</span>
+          <span>Game Time limit</span>
           <strong>
             {hours}h {String(mins).padStart(2, "0")}m
           </strong>
-        </div>
-        <div className="row-between">
-          <span>Private deck size</span>
-          <strong>{state.params.privateDeckSize}</strong>
         </div>
         <div className="row-between">
           <span>Open deck flop size</span>
           <strong>{state.params.openInPlay}</strong>
         </div>
         <div className="row-between">
-          <span>Private deck unveil period</span>
-          <strong>{unveilLabel}</strong>
+          <span>Private deck size</span>
+          <strong>{state.params.privateDeckSize}</strong>
         </div>
+        {unveilMs > 0 && (
+          <div className="row-between">
+            <span>Private deck unveil period</span>
+            <strong>{unveilLabel}</strong>
+          </div>
+        )}
       </div>
 
       {mapFeatures.length > 0 && (

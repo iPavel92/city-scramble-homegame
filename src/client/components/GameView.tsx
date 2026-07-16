@@ -241,7 +241,7 @@ export function GameView({
   const selArea = selected ? state.areas.find((a) => a.id === selected) : null;
   const pendingArea = pending ? state.areas.find((a) => a.id === pending.areaId) : null;
 
-  const banner = redrawBanner(redraw, teamById);
+  const banner = redrawBanner(redraw, teamById, state.youTeamId);
 
   return (
     <div className="game-root">
@@ -336,15 +336,19 @@ export function GameView({
 function redrawBanner(
   redraw: GameStateView["redraw"],
   teamById: Map<string, Team>,
+  youTeamId: string,
 ): string | null {
   if (!redraw) return null;
   const claimerName = teamById.get(redraw.claimerTeamId)?.name ?? "the leader";
   if (redraw.youRole === "protector")
-    return "The scored team can remove one grey open-deck area from the map. Tap one to protect it.";
+    return "The scored team can remove one grey open-deck area from the map.\nTap one to protect it.";
   if (redraw.youRole === "claimer") return "Tap an unprotected grey area to replace it.";
   // waiting
   if (redraw.stage === "protecting") {
-    return `Waiting for teams to protect… (${redraw.pendingCount} left)`;
+    if (youTeamId === redraw.claimerTeamId) {
+      return "Now you can replace one open deck area in the flop.\nWaiting for other teams to protect their areas.";
+    }
+    return "Waiting for other teams to protect their areas.";
   }
   return `Waiting for ${claimerName} to replace an area…`;
 }

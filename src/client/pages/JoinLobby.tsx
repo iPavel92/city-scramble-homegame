@@ -58,6 +58,8 @@ export function JoinLobby() {
           value={teamName}
           maxLength={24}
           placeholder="The Trailblazers"
+          autoComplete="name"
+          name="name"
           onChange={(e) => setTeamName(e.target.value)}
         />
       </div>

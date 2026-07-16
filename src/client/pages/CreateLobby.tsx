@@ -10,11 +10,11 @@ export function CreateLobby() {
   const [sel, setSel] = useState<AreaSelection | null>(null);
 
   // Step 2 params
-  const [hh, setHh] = useState("06");
+  const [hh, setHh] = useState("6");
   const [mm, setMm] = useState("00");
   const [privateY, setPrivateY] = useState("2");
   const [openX, setOpenX] = useState("3");
-  const [unlockHh, setUnlockHh] = useState("01");
+  const [unlockHh, setUnlockHh] = useState("1");
   const [unlockMm, setUnlockMm] = useState("00");
   // Whether the host has manually edited the deck sizes (else we default them
   // to ~10% of the selected areas when entering the settings step).
@@ -37,7 +37,7 @@ export function CreateLobby() {
   const unlockOk = privateUnlockPeriodMs === 0 || privateUnlockPeriodMs < timeLimitMs;
   const step2Ok =
     timeLimitMs > 0 &&
-    x >= 1 &&
+    x >= 2 &&
     y >= 0 &&
     x <= selectedCount &&
     y * 1 + x <= selectedCount && // host alone; more teams checked at start
@@ -90,9 +90,9 @@ export function CreateLobby() {
               disabled={!step1Ok}
               onClick={() => {
                 if (!deckSizesTouched) {
-                  const d = String(Math.max(1, Math.round(selectedCount * 0.1)));
-                  setPrivateY(d);
-                  setOpenX(d);
+                  const base = Math.round(selectedCount * 0.1);
+                  setPrivateY(String(Math.max(1, base)));
+                  setOpenX(String(Math.max(2, base)));
                 }
                 setStep(2);
               }}
@@ -106,7 +106,7 @@ export function CreateLobby() {
       {step === 2 && (
         <div className="wizard-body">
           <h2>Game settings</h2>
-          <label>Time limit</label>
+          <label>Game Time limit</label>
           <div className="btn-row">
             <div className="grow">
               <input
@@ -128,17 +128,6 @@ export function CreateLobby() {
             </div>
           </div>
 
-          <label>Private deck size</label>
-          <input
-            inputMode="numeric"
-            value={privateY}
-            onChange={(e) => {
-              setPrivateY(e.target.value.replace(/\D/g, "").slice(0, 3));
-              setDeckSizesTouched(true);
-            }}
-          />
-          <div className="field-hint">Exclusive areas each team can claim only for itself.</div>
-
           <label>Open deck flop size</label>
           <input
             inputMode="numeric"
@@ -149,8 +138,19 @@ export function CreateLobby() {
             }}
           />
           <div className="field-hint">
-            Shared areas visible at once. A new one appears whenever one is claimed.
+            Shared areas visible at once (minimum 2). A new one appears whenever one is claimed.
           </div>
+
+          <label>Private deck size</label>
+          <input
+            inputMode="numeric"
+            value={privateY}
+            onChange={(e) => {
+              setPrivateY(e.target.value.replace(/\D/g, "").slice(0, 3));
+              setDeckSizesTouched(true);
+            }}
+          />
+          <div className="field-hint">Exclusive areas each team can claim only for itself.</div>
 
           <label>Private deck unveil period</label>
           <div className="btn-row">
@@ -178,13 +178,6 @@ export function CreateLobby() {
             be less than the game time limit.
           </div>
 
-          <div className="card" style={{ marginTop: 8 }}>
-            <div className="row-between">
-              <span>Areas selected</span>
-              <strong>{selectedCount}</strong>
-            </div>
-          </div>
-
           <div className="btn-row" style={{ marginTop: "auto" }}>
             <button className="btn ghost" onClick={() => setStep(1)}>
               Back
@@ -205,6 +198,8 @@ export function CreateLobby() {
             value={teamName}
             maxLength={24}
             placeholder="Team Captain"
+            autoComplete="name"
+            name="name"
             onChange={(e) => setTeamName(e.target.value)}
           />
           <div className="field-hint">You are the host and can start the game.</div>
