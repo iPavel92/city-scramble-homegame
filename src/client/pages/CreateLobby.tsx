@@ -103,7 +103,14 @@ export function CreateLobby() {
       return;
     }
     setImportedChallenges(result.map);
-    setChallengeMsg(`Validated — custom challenges set for all ${selectedAreas.length} areas.`);
+    const n = Object.keys(result.map).length;
+    const total = selectedAreas.length;
+    const rest = total - n;
+    setChallengeMsg(
+      rest > 0
+        ? `Imported challenges for ${n} of ${total} areas. The other ${rest} will use random default challenges.`
+        : `Validated — custom challenges set for all ${total} areas.`,
+    );
   };
 
   const create = async () => {
@@ -318,8 +325,8 @@ export function CreateLobby() {
           {challengeMode === "custom" && (
             <div style={{ marginTop: 12 }}>
               <div className="field-hint" style={{ marginBottom: 8 }}>
-                Copy the template, fill in a challenge for each area, paste it back, then Import.
-                One entry per area, matched by name.
+                Copy the template, fill in the challenges you want, paste it back, then Import.
+                Matched by area name; any area you leave out uses a random default challenge.
               </div>
               <div className="btn-row">
                 <button className="btn secondary" onClick={copyTemplate}>

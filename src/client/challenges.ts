@@ -1,8 +1,10 @@
 /**
  * Validate host-pasted challenge JSON against the currently selected areas.
- * Expects an array of { area, challenge } objects, one per selected area,
- * matched by area name. Every area must be covered exactly once — nothing
- * missing, nothing duplicated. Returns a map of areaId → challenge text.
+ * Expects an array of { area, challenge } objects matched by area name.
+ * Areas may be left out — those fall back to random default challenges at game
+ * start — but each area may appear at most once, must be one of the selected
+ * areas, and must have non-empty text. Returns a map of areaId → challenge text
+ * for the areas that were provided.
  */
 export function validateChallengeJson(
   text: string,
@@ -50,11 +52,11 @@ export function validateChallengeJson(
     map[id] = challenge;
   }
 
-  const missing = areas.filter((a) => !seen.has(a.id)).map((a) => a.name);
-  if (missing.length > 0) {
-    const shown = missing.slice(0, 3).join(", ");
-    const extra = missing.length > 3 ? ` (+${missing.length - 3} more)` : "";
-    return { ok: false, error: `Missing a challenge for: ${shown}${extra}.` };
+  if (Object.keys(map).length === 0) {
+    return {
+      ok: false,
+      error: "Add a challenge for at least one area, or switch to default challenges.",
+    };
   }
 
   return { ok: true, map };

@@ -48,11 +48,17 @@ describe("validateChallengeJson", () => {
     });
   });
 
-  it("rejects when an area is missing", () => {
+  it("allows missing areas and returns a partial map (they fall back to defaults)", () => {
     const text = JSON.stringify([entry("North", "x"), entry("South", "y")]);
     const res = validateChallengeJson(text, areas);
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.map).toEqual({ A: "x", B: "y" });
+  });
+
+  it("rejects an import with no valid entries", () => {
+    const res = validateChallengeJson("[]", areas);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toContain("East");
+    if (!res.ok) expect(res.error).toContain("at least one");
   });
 
   it("rejects a duplicate area entry", () => {
