@@ -280,6 +280,12 @@ export class GameLobby extends DurableObject<Env> {
     const placements: AreaPlacement[] = [];
 
     for (const id of m.areaIds) {
+      // Every player receives the geometry for ALL areas so the full game board
+      // is always visible as outlines. Placement (deck/owner/challenge/claim) is
+      // still visibility-filtered below.
+      const g = this.geom?.get(id);
+      if (g) areas.push({ id, name: g.name, centroid: g.centroid, geometry: g.geometry });
+
       const claim = m.claims[id];
       const ownerTeamId = owner[id];
       const deck: DeckKind = ownerTeamId ? "private" : "open";
@@ -300,8 +306,6 @@ export class GameLobby extends DurableObject<Env> {
       }
       if (!visible) continue;
 
-      const g = this.geom?.get(id);
-      if (g) areas.push({ id, name: g.name, centroid: g.centroid, geometry: g.geometry });
       placements.push({
         areaId: id,
         deck,

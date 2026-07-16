@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { GameStateView } from "../../shared/types";
+import { MapView, type MapFeature } from "./MapView";
 
 export function LobbyView({
   state,
@@ -27,6 +28,16 @@ export function LobbyView({
 
   const hours = Math.floor(state.params.timeLimitMs / 3_600_000);
   const mins = Math.floor((state.params.timeLimitMs % 3_600_000) / 60_000);
+
+  const mapFeatures: MapFeature[] = useMemo(
+    () =>
+      state.areas.map((a) => ({
+        area: a,
+        style: { color: "#000000", weight: 1.5, fillColor: "#000000", fillOpacity: 0 },
+        tooltip: a.name,
+      })),
+    [state.areas],
+  );
 
   return (
     <div className="screen">
@@ -55,6 +66,17 @@ export function LobbyView({
           <strong>{state.params.openInPlay}</strong>
         </div>
       </div>
+
+      {mapFeatures.length > 0 && (
+        <>
+          <label style={{ marginTop: 14 }}>Game area</label>
+          <MapView
+            features={mapFeatures}
+            fitSignature={state.code}
+            className="map lobby-map"
+          />
+        </>
+      )}
 
       <label style={{ marginTop: 14 }}>Teams ({state.teams.length})</label>
       <div className="team-list">

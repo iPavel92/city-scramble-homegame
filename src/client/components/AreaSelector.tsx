@@ -184,6 +184,20 @@ export function AreaSelector({
               {sel.selectedIds.length} selected
             </span>
           </div>
+          <div className="btn-row">
+            <button
+              className="btn secondary"
+              onClick={() => setSel((s) => ({ ...s, selectedIds: s.areas.map((a) => a.id) }))}
+            >
+              Select all
+            </button>
+            <button
+              className="btn ghost"
+              onClick={() => setSel((s) => ({ ...s, selectedIds: [] }))}
+            >
+              Deselect all
+            </button>
+          </div>
           <MapView features={features} fitSignature={sel.cacheKey} className="map grow" />
           <div className="hint">Tap areas on the map to include them in the game.</div>
         </>

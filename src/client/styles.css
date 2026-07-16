@@ -230,6 +230,10 @@ select:focus {
   border-radius: 0;
   border: none;
 }
+.map.lobby-map {
+  height: 240px;
+  flex: none;
+}
 .leaflet-container {
   background: #0b1220;
   font-family: inherit;
@@ -413,38 +417,6 @@ select:focus {
 .sheet .muted {
   color: var(--text-dim);
   font-size: 0.9rem;
-}
-
-.announce {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 64px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1150;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 90vw;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid var(--accent);
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  text-align: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  animation: announceIn 0.2s ease;
-}
-@keyframes announceIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -8px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
 }
 
 .overlay {

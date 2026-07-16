@@ -9,7 +9,6 @@ import { ChallengeSheet } from "./ChallengeSheet";
 const GRAY = "#9ca3af";
 const BORDER = "#000000";
 const HIGHLIGHT = "#fbbf24";
-const ANNOUNCE_MS = 3200;
 
 interface Announcement {
   id: string;
@@ -92,16 +91,8 @@ export function GameView({
     if (next.length) setQueue((q) => [...q, ...next]);
   }, [state, teamById, areaNameById]);
 
-  // Show announcements one at a time.
-  useEffect(() => {
-    if (queue.length === 0) return;
-    const headId = queue[0].id;
-    const t = setTimeout(
-      () => setQueue((q) => (q[0]?.id === headId ? q.slice(1) : q)),
-      ANNOUNCE_MS,
-    );
-    return () => clearTimeout(t);
-  }, [queue]);
+  // Announcements are blocking — dismissed one at a time via the OK button.
+  const dismissAnnouncement = () => setQueue((q) => q.slice(1));
 
   const current = queue[0] ?? null;
   const highlightId = current?.areaId ?? null;
@@ -109,16 +100,17 @@ export function GameView({
   const features: MapFeature[] = useMemo(
     () =>
       state.areas.map((area) => {
-        const p = placementById.get(area.id)!;
-        let fillColor: string;
-        let fillOpacity: number;
-        if (p.claim) {
+        const p = placementById.get(area.id);
+        // Areas not in play for this team render as black outlines only.
+        let fillColor = BORDER;
+        let fillOpacity = 0;
+        if (p?.claim) {
           fillColor = teamById.get(p.claim.teamId)?.color ?? GRAY;
           fillOpacity = 0.6;
-        } else if (p.deck === "open") {
+        } else if (p?.deck === "open") {
           fillColor = GRAY;
           fillOpacity = 0.4;
-        } else {
+        } else if (p?.deck === "private") {
           fillColor = you?.color ?? "#38bdf8";
           fillOpacity = 0.3;
         }
@@ -132,7 +124,7 @@ export function GameView({
             fillOpacity: isHi ? Math.min(0.8, fillOpacity + 0.2) : fillOpacity,
           },
           tooltip: area.name,
-          onClick: p.claimable ? () => setSelected(area.id) : undefined,
+          onClick: p?.claimable ? () => setSelected(area.id) : undefined,
         };
       }),
     [state.areas, placementById, teamById, you, highlightId],
@@ -149,14 +141,7 @@ export function GameView({
         <Leaderboard scores={state.scores} teams={state.teams} youTeamId={state.youTeamId} />
       </div>
 
-      {current && (
-        <div className="announce" key={current.id}>
-          {current.color && <span className="dot" style={{ background: current.color }} />}
-          <span>{current.message}</span>
-        </div>
-      )}
-
-      {selPlacement?.claimable && selArea && (
+      {selPlacement?.claimable && selArea && !current && (
         <ChallengeSheet
           areaName={selArea.name}
           placement={selPlacement}
@@ -166,6 +151,25 @@ export function GameView({
             setSelected(null);
           }}
         />
+      )}
+
+      {current && (
+        <div className="sheet-backdrop">
+          <div className="sheet" key={current.id}>
+            <div className="row-between">
+              <h3 style={{ margin: 0 }}>
+                {current.color ? "Area claimed" : "New area in play"}
+              </h3>
+              {current.color && (
+                <span className="dot" style={{ background: current.color }} />
+              )}
+            </div>
+            <div className="challenge">{current.message}</div>
+            <button className="btn" onClick={dismissAnnouncement}>
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       {state.phase === "ended" && <ResultsOverlay state={state} teamById={teamById} />}
