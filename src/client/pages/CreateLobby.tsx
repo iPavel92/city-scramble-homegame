@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { saveSession } from "../store";
 import { challengeTemplate, validateChallengeJson } from "../challenges";
+import { CHALLENGES } from "../../shared/challenges";
 import { AreaSelector, type AreaSelection } from "../components/AreaSelector";
 
 type ChallengeMode = "default" | "custom";
@@ -67,6 +68,16 @@ export function CreateLobby() {
   }, [selectionKey]);
 
   const step3Ok = challengeMode === "default" || importedChallenges !== null;
+
+  // Three random challenges shown as examples of the default pool.
+  const exampleChallenges = useMemo(() => {
+    const pool = [...CHALLENGES];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, 3);
+  }, []);
 
   const copyTemplate = async () => {
     const text = challengeTemplate(selectedAreas);
@@ -257,6 +268,13 @@ export function CreateLobby() {
             />
             <span>Use default generic challenges</span>
           </label>
+          {challengeMode === "default" && (
+            <ul className="examples">
+              {exampleChallenges.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          )}
           <label className="toggle-row">
             <input
               type="radio"

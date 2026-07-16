@@ -156,6 +156,16 @@ textarea {
   min-height: 200px;
   margin-top: 10px;
 }
+.examples {
+  margin: 4px 0 6px;
+  padding-left: 24px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  list-style: disc;
+}
+.examples li {
+  margin: 4px 0;
+}
 .msg {
   font-size: 0.85rem;
   font-weight: 600;
