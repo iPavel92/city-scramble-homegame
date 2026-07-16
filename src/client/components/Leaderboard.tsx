@@ -16,7 +16,7 @@ export function Leaderboard({
 
   return (
     <div className="leaderboard">
-      <div className="lb-title">Biggest cluster</div>
+      <div className="lb-title">Score</div>
       {ranked.map((s) => {
         const team = teamById.get(s.teamId);
         if (!team) return null;

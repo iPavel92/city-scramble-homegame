@@ -6,13 +6,14 @@ import { Timer } from "./Timer";
 import { Leaderboard } from "./Leaderboard";
 import { ChallengeSheet } from "./ChallengeSheet";
 
-const GRAY = "#9ca3af";
-// Open-deck in-play fill: GRAY darkened by 30% so live open areas stand out.
-const OPEN_FILL = "#6d727a";
-const BORDER = "#000000";
-const HIGHLIGHT = "#fbbf24";
-const PROTECTED = "#a855f7"; // purple border for protected areas
-const ACTION = "#38bdf8"; // accent border for tappable areas during a redraw
+const GRAY = "#9ca3af"; // fallback fill for a claimed area with an unknown team
+const OPEN_FILL = "#4c5055"; // open-deck in-play fill (darkened toward black)
+const BORDER = "#000000"; // border for actual in-game areas
+const OUTLINE_BORDER = "#666666"; // lighter/gray border for non-in-game areas
+const HIGHLIGHT = "#fbbf24"; // announcement highlight
+const PROTECTED_FILL = "#1e2022"; // protected-area fill during a redraw (darkened)
+const OPTION_BORDER = "#16a34a"; // saturated green border for protect/replace options
+const CHOSEN_BORDER = "#14532d"; // darker green border for the chosen option
 
 type AnnouncementKind = "claim" | "reveal" | "removed";
 
@@ -167,10 +168,13 @@ export function GameView({
     [redraw],
   );
 
+  const chosenId = pending?.areaId ?? null;
+
   const features: MapFeature[] = useMemo(
     () =>
       state.areas.map((area) => {
         const p = placementById.get(area.id);
+        const isProtected = protectedSet.has(area.id);
         let fillColor = BORDER;
         let fillOpacity = 0;
         if (p?.claim) {
@@ -183,21 +187,30 @@ export function GameView({
           fillColor = you?.color ?? "#38bdf8";
           fillOpacity = 0.3;
         }
+        // Protected areas get a darkened fill while a redraw is in progress.
+        if (redraw && isProtected) {
+          fillColor = PROTECTED_FILL;
+          fillOpacity = 0.6;
+        }
 
         const isHi = area.id === highlightId;
-        const isProtected = protectedSet.has(area.id);
         const isActionable = actionable.has(area.id);
-        let color = BORDER;
-        let weight = 1.5;
+        const isChosen = area.id === chosenId;
+        let color: string;
+        let weight: number;
         if (isHi) {
           color = HIGHLIGHT;
           weight = 4;
-        } else if (isProtected) {
-          color = PROTECTED;
+        } else if (redraw && isChosen) {
+          color = CHOSEN_BORDER; // the option the player has selected
           weight = 4;
-        } else if (isActionable) {
-          color = ACTION;
+        } else if (redraw && isActionable) {
+          color = OPTION_BORDER; // a selectable protect/replace option
           weight = 3;
+        } else {
+          // In-game areas keep a black border; everything else is lighter/gray.
+          color = p ? BORDER : OUTLINE_BORDER;
+          weight = 1.5;
         }
 
         let onClick: (() => void) | undefined;
@@ -224,7 +237,7 @@ export function GameView({
           onClick,
         };
       }),
-    [state.areas, placementById, teamById, you, highlightId, redraw, actionable, protectedSet],
+    [state.areas, placementById, teamById, you, highlightId, redraw, actionable, protectedSet, chosenId],
   );
 
   const selPlacement = selected ? placementById.get(selected) : null;
