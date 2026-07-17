@@ -232,6 +232,10 @@ textarea {
   color: var(--text-dim);
   margin-top: 4px;
 }
+.field-hint.hint-warn {
+  color: var(--danger);
+  font-weight: 600;
+}
 .toggle-row {
   display: flex;
   align-items: center;

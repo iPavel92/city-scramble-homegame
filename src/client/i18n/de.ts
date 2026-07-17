@@ -2,6 +2,9 @@ import { type Dict } from "./en";
 
 export const de: Dict = {
   "examplesHeader": "Beispiele:",
+  "notEnoughAreas":
+    "Nicht genug Gebiete: {teams} Teams brauchen mindestens {needed} (das private Deck jedes Teams plus den offenen Flop), aber nur {have} sind im Spiel. Lass ein Team gehen oder erstelle das Spiel mit mehr Gebieten oder kleineren Decks neu.",
+  "supportsTeams": "Diese Größen unterstützen bis zu {n} Team(s) bei {areas} Gebieten.",
   "aboutAreaTypesTitle": "Gebietstypen",
   "aboutColorsIntro": "Sobald das Spiel beginnt, sind die Gebiete auf der Karte eingefärbt:",
   "aboutDisclaimerAfter": "-Mitwirkenden.",

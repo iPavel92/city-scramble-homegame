@@ -58,6 +58,13 @@ export function CreateLobby() {
     y * 1 + x <= selectedCount && // host alone; more teams checked at start
     unlockOk;
 
+  // How many teams these deck sizes can support: teams*Y + X <= areas.
+  // (Capped at the server's 10-team maximum.)
+  const maxTeams = Math.min(
+    10,
+    y > 0 ? Math.max(0, Math.floor((selectedCount - x) / y)) : 10,
+  );
+
   // The set of areas that will actually be in the game (id + name).
   const selectedAreas = useMemo(
     () => (sel ? sel.areas.filter((a) => sel.selectedIds.includes(a.id)) : []),
@@ -245,6 +252,9 @@ export function CreateLobby() {
             }}
           />
           <div className="field-hint">{t("privateDeckSizeHint")}</div>
+          <div className={`field-hint ${maxTeams < 2 ? "hint-warn" : ""}`}>
+            {t("supportsTeams", { n: maxTeams, areas: selectedCount })}
+          </div>
 
           <label>{t("privateUnveilPeriod")}</label>
           <div className="btn-row">

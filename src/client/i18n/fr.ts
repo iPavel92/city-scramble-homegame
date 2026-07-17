@@ -2,6 +2,9 @@ import { type Dict } from "./en";
 
 export const fr: Dict = {
   "examplesHeader": "Exemples :",
+  "notEnoughAreas":
+    "Pas assez de zones : {teams} équipes ont besoin d'au moins {needed} (la pioche privée de chaque équipe plus le flop ouvert), mais seulement {have} sont dans la partie. Fais partir une équipe, ou recrée la partie avec plus de zones ou des pioches plus petites.",
+  "supportsTeams": "Ces tailles permettent jusqu'à {n} équipe(s) avec {areas} zones.",
   "aboutAreaTypesTitle": "Types de zones",
   "aboutColorsIntro": "Une fois la partie lancée, les zones sur la carte sont colorées :",
   "aboutDisclaimerAfter": ".",

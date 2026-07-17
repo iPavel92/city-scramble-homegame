@@ -2,6 +2,9 @@ import { type Dict } from "./en";
 
 export const es: Dict = {
   "examplesHeader": "Ejemplos:",
+  "notEnoughAreas":
+    "No hay áreas suficientes: {teams} equipos necesitan al menos {needed} (la baraja privada de cada equipo más el flop abierto), pero solo hay {have} en la partida. Haz que un equipo salga o vuelve a crear la partida con más áreas o barajas más pequeñas.",
+  "supportsTeams": "Estos tamaños admiten hasta {n} equipo(s) con {areas} áreas.",
   "aboutAreaTypesTitle": "Tipos de área",
   "aboutColorsIntro": "Una vez que empieza la partida, las áreas del mapa se colorean:",
   "aboutDisclaimerAfter": ".",

@@ -42,6 +42,7 @@ export const en = {
   twoPlayers: "2 players",
   teamSize2Hint: "Adds two-person teammate challenges to the pool.",
   teamSize1Hint: "Solo-friendly challenges only.",
+  supportsTeams: "These sizes support up to {n} team(s) with {areas} areas.",
   examplesHeader: "Examples:",
   useCustomChallenges: "Use custom challenges",
   customChallengesIntro:
@@ -104,6 +105,8 @@ export const en = {
   host: "host",
   startGame: "Start game",
   needAnotherTeam: "You need at least one other team to start.",
+  notEnoughAreas:
+    "Not enough areas: {teams} teams need at least {needed} (each team's private deck plus the open flop), but only {have} are in the game. Have a team leave, or recreate the game with more areas or smaller decks.",
   waitingForHost: "Waiting for the host to start the game…",
   leave: "Leave",
 

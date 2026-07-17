@@ -29,3 +29,22 @@ describe("partition custom challenges", () => {
     expect(layout.challenges["A"].trim().length).toBeGreaterThan(0);
   });
 });
+
+describe("partition capacity", () => {
+  const p = { ...params, privateDeckSize: 2, openInPlay: 3 }; // needs teams*2 + 3
+
+  it("throws when areas can't cover every private deck plus the flop", () => {
+    // 2 teams need 2*2 + 3 = 7 areas; only 6 provided.
+    const areas = ["a", "b", "c", "d", "e", "f"];
+    expect(() => partition(areas, ["t1", "t2"], p)).toThrow(/at least 7/);
+  });
+
+  it("deals full private decks and a full flop at exact capacity", () => {
+    const areas = ["a", "b", "c", "d", "e", "f", "g"]; // exactly 7
+    const layout = partition(areas, ["t1", "t2"], p);
+    expect(layout.privateDecks["t1"]).toHaveLength(2);
+    expect(layout.privateDecks["t2"]).toHaveLength(2);
+    expect(layout.flop).toHaveLength(3);
+    expect(layout.deck).toHaveLength(0);
+  });
+});

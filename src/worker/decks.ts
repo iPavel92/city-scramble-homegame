@@ -46,10 +46,12 @@ export function partition(
 ): DeckLayout {
   const Y = Math.max(0, Math.floor(params.privateDeckSize));
   const X = Math.max(1, Math.floor(params.openInPlay));
-  const needed = teamIds.length * Y + 1;
+  // Each team needs its private deck (Y) plus a full opening flop (X). The
+  // client gates Start on the same figure; this is the server-side backstop.
+  const needed = teamIds.length * Y + X;
   if (areaIds.length < needed) {
     throw new Error(
-      `Not enough areas: need at least ${needed} for ${teamIds.length} team(s) with a private deck of ${Y}, but only ${areaIds.length} were selected.`,
+      `Not enough areas: ${teamIds.length} team(s) with a private deck of ${Y} and an open flop of ${X} need at least ${needed}, but only ${areaIds.length} were selected.`,
     );
   }
 

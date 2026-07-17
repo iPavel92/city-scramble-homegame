@@ -39,7 +39,12 @@ export function LobbyView({
           Math.floor((unveilMs % 3_600_000) / 60_000),
         ).padStart(2, "0")}m`
       : t("allAtStart");
-  const canStart = state.teams.length >= 2;
+  // Need every team's private deck (Y) plus a full opening flop (X). This
+  // mirrors the server's partition() so Start never triggers its error.
+  const neededAreas = state.teams.length * state.params.privateDeckSize + state.params.openInPlay;
+  const totalAreas = state.areas.length;
+  const enoughAreas = totalAreas >= neededAreas;
+  const canStart = state.teams.length >= 2 && enoughAreas;
 
   const mapFeatures: MapFeature[] = useMemo(
     () =>
@@ -118,9 +123,18 @@ export function LobbyView({
           >
             {t("startGame")}
           </button>
-          {!canStart && (
+          {state.teams.length < 2 && (
             <p className="hint" style={{ marginTop: 8 }}>
               {t("needAnotherTeam")}
+            </p>
+          )}
+          {state.teams.length >= 2 && !enoughAreas && (
+            <p className="hint" style={{ marginTop: 8, color: "var(--danger)" }}>
+              {t("notEnoughAreas", {
+                teams: state.teams.length,
+                needed: neededAreas,
+                have: totalAreas,
+              })}
             </p>
           )}
         </>
